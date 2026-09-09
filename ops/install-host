@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Install persistence and delivery tools. Preview by default; never provision."""
+"""Install persistence and recovery tools. Preview by default; never provision."""
 import argparse
 import hashlib
 import json
@@ -77,8 +77,7 @@ def install(args):
     plan = {'data_uuid': cfg['filesystem_uuid'], 'operations': '/opt/athenaeum/operations',
             'venv': '/opt/athenaeum/operations/venv', 'age': cfg['age_binary'],
             'config': '/etc/athenaeum/recovery.json', 'state': cfg['state_dir'],
-            'units': ['athenaeum-backup.service', 'athenaeum-backup.timer', 'athenaeum-metadata-guard.service',
-                      'athenaeum-updates.service', 'athenaeum-updates.timer'],
+            'units': ['athenaeum-backup.service', 'athenaeum-backup.timer', 'athenaeum-metadata-guard.service'],
             'docker_drop_in': '/etc/systemd/system/docker.service.d/athenaeum-recovery.conf',
             'apply': args.apply, 'services_started': False}
     print(json.dumps(plan, indent=2))
@@ -91,7 +90,6 @@ def install(args):
         if model['services'][service].get('user') != '10001:10001':
             raise Failure('Host installation requires production UID/GID 10001:10001')
     run(['docker', 'version', '--format', '{{.Server.Version}}'])
-    run(['docker', 'buildx', 'version'])
     run(['curl', '--version'])
     run(['iptables', '--version'])
     state = Path(cfg['state_dir'])
@@ -141,18 +139,17 @@ def install(args):
                 directory(dest)
                 if dest.stat().st_uid != 10001:
                     raise Failure(f'Existing directory ownership needs deliberate review: {dest}')
-            for relative in ('backups/staging', 'deploy-state'):
+            for relative in ('backups/staging',):
                 dest = data / relative
                 dest.mkdir(parents=True, exist_ok=True, mode=0o700)
                 directory(dest)
                 os.chmod(dest, 0o700)
-            for name in ('athenaeum-backup.service', 'athenaeum-backup.timer', 'athenaeum-metadata-guard.service',
-                         'athenaeum-updates.service', 'athenaeum-updates.timer'):
+            for name in ('athenaeum-backup.service', 'athenaeum-backup.timer', 'athenaeum-metadata-guard.service'):
                 install_file(ROOT / 'ops/systemd' / name, Path('/etc/systemd/system') / name, rollback)
             install_file(ROOT / 'ops/systemd/athenaeum-docker-guard.conf',
                          '/etc/systemd/system/docker.service.d/athenaeum-recovery.conf', rollback)
             run(['systemctl', 'daemon-reload'])
-            print('Installed persistence/delivery files; existing files saved under ' + str(rollback))
+            print('Installed persistence/recovery files; existing files saved under ' + str(rollback))
             print('No services restarted or timers enabled. Follow docs/recovery.md and docs/delivery.md for activation.')
 
 

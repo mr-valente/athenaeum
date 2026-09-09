@@ -48,10 +48,11 @@ Bind mounts require existing directories. Production also uses the filesystem UU
 ## Automated checks
 
 ```bash
-python3 ci/images.py build
+ops/local-stack up --build --wait
+ops/local-stack ps
 ```
 
-This builds and smoke-tests native local images. Run the sibling repository's same command for its real-server tests. Host tests and the disposable HTTPS/backup/rollback drill are documented in [delivery](delivery.md).
+This builds native development images and waits for container health checks. Run host recovery tests as described in [recovery](recovery.md), and use the browser workflow below to verify routing and classroom behavior. Production ARM64 builds and Docker Hub publication are described in [manual delivery](delivery.md).
 
 Browser checks use `tests/browser/` and create synthetic data only:
 

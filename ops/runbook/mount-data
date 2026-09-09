@@ -1,0 +1,99 @@
+#!/usr/bin/env python3
+"""Preview or mount an EXISTING ext4 UUID at /srv/athenaeum. Never formats disks."""
+import argparse
+import json
+import os
+from pathlib import Path
+import re
+import tempfile
+from _support import finish, host, say, visible, run, Failure
+from athenaeum_ops.common import directory, regular, guard_mount
+
+TARGET = Path('/srv/athenaeum')
+FSTAB = Path('/etc/fstab')
+
+
+def planned_fstab(text, uuid):
+    """Keep unrelated entries byte-for-byte; reject a conflicting mount rule."""
+    expected = [f'UUID={uuid}', str(TARGET), 'ext4', 'defaults,_netdev,nofail', '0', '2']
+    entries = [line.split() for line in text.splitlines() if line.strip() and not line.lstrip().startswith('#')]
+    matches = [entry for entry in entries if len(entry) >= 2 and (entry[1] == str(TARGET) or entry[0] == expected[0])]
+    if matches:
+        if matches != [expected]:
+            raise Failure('Conflicting fstab entry for this UUID or /srv/athenaeum; review it manually.')
+        return text
+    return text.rstrip('\n') + '\n' + ' '.join(expected) + '\n'
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--uuid', required=True, help='Filesystem UUID from blkid, not the volume OCID')
+    parser.add_argument('--apply', action='store_true', help='Save fstab and mount; otherwise inspect only')
+    args = parser.parse_args()
+    host()
+    if not re.fullmatch(r'[a-fA-F0-9-]{8,64}', args.uuid):
+        raise Failure('Supply a real filesystem UUID.')
+    # Resolve by UUID, then check the actual filesystem. Never trust /dev/sdb to
+    # keep naming the same disk after an Oracle attachment change or reboot.
+    devices = run(['blkid', '-t', 'UUID=' + args.uuid, '-o', 'device']).decode().splitlines()
+    if len(devices) != 1 or run(['blkid', '-s', 'TYPE', '-o', 'value', devices[0]]).decode().strip() != 'ext4':
+        raise Failure('UUID must resolve to exactly one existing ext4 filesystem.')
+    mounted = json.loads(run(['findmnt', '--json', '--list', '-o', 'TARGET,UUID']))['filesystems']
+    for fs in mounted:
+        if fs.get('uuid') == args.uuid and fs['target'] != str(TARGET):
+            raise Failure('That filesystem is already mounted elsewhere (possibly the OS disk).')
+        if fs['target'] == str(TARGET) and fs.get('uuid') != args.uuid:
+            raise Failure('A different filesystem is already mounted at /srv/athenaeum.')
+    already = any(fs['target'] == str(TARGET) for fs in mounted)
+    if TARGET.exists():
+        directory(TARGET)
+        if not already and any(TARGET.iterdir()):
+            raise Failure('/srv/athenaeum contains files; mounting would hide them. Review first.')
+    else:
+        directory(TARGET.parent)
+    regular(FSTAB)
+    before = FSTAB.read_text()
+    after = planned_fstab(before, args.uuid)
+    say(f'Device: {devices[0]}\nUUID: {args.uuid}\nMount: {TARGET}\nRule: UUID={args.uuid} {TARGET} ext4 defaults,_netdev,nofail 0 2')
+    say('Current state: ' + ('already mounted' if already else 'not mounted'))
+    if already:
+        guard_mount({'mode': 'production', 'data_root': str(TARGET), 'filesystem_uuid': args.uuid})
+    if not args.apply:
+        say('PREVIEW: nothing changed. Repeat with --apply after checking the UUID.')
+        return
+    # Save the exact previous fstab before adding our one line. A unique backup
+    # preserves each installation attempt; existing OS/boot entries stay intact.
+    if after != before:
+        with tempfile.NamedTemporaryFile(prefix='fstab.before-athenaeum-', dir=FSTAB.parent, delete=False) as saved:
+            saved.write(before.encode())
+        if Path(saved.name).read_text() != before:
+            raise Failure('Could not verify fstab rollback copy.')
+        say('Saved previous fstab: ' + saved.name)
+        # Replace atomically so an interrupted write cannot truncate the boot
+        # configuration. Preserve the original owner/mode, and refuse a change
+        # by another operator since the preview inside this invocation.
+        metadata = FSTAB.stat()
+        with tempfile.NamedTemporaryFile(prefix='.fstab-athenaeum-', dir=FSTAB.parent, delete=False) as staged:
+            replacement = Path(staged.name)
+            try:
+                staged.write(after.encode())
+                staged.flush()
+                os.fsync(staged.fileno())
+                os.fchown(staged.fileno(), metadata.st_uid, metadata.st_gid)
+                os.fchmod(staged.fileno(), metadata.st_mode & 0o777)
+                if FSTAB.read_text() != before:
+                    raise Failure('fstab changed concurrently; no replacement applied.')
+                os.replace(replacement, FSTAB)
+            finally:
+                replacement.unlink(missing_ok=True)
+    TARGET.mkdir(exist_ok=True)
+    visible(['systemctl', 'daemon-reload'])
+    if not already:
+        visible(['mount', str(TARGET)])
+    guard_mount({'mode': 'production', 'data_root': str(TARGET), 'filesystem_uuid': args.uuid})
+    visible(['findmnt', '--mountpoint', str(TARGET), '-o', 'TARGET,UUID,FSTYPE,OPTIONS'])
+    say('PASS: exact writable ext4 UUID mounted. Reboot and repeat the preview to check persistence.')
+
+
+if __name__ == '__main__':
+    finish(main)

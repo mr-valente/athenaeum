@@ -76,7 +76,7 @@ docker buildx build --builder athenaeum-builder \
 docker buildx rm athenaeum-builder
 ```
 
-An OCI archive is a local delivery artifact. To run one architecture locally, use `--platform linux/amd64 --load` (or `linux/arm64` on ARM) instead of `--output`. The multi-platform archive is not universally loadable with `docker load`; use a compatible image store or a registry when delivery is implemented. No push command or deployment automation is configured in Phase B.
+An OCI archive is a local delivery artifact. To run one architecture locally, use `--platform linux/amd64 --load` (or `linux/arm64` on ARM) instead of `--output`. The multi-platform archive is not universally loadable with `docker load`; use a compatible image store or a registry. Production releases use the shared Fish builder and Docker Hub as described in [manual delivery](delivery.md).
 
 ## Dependency updates
 

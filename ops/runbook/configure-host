@@ -1,0 +1,87 @@
+#!/usr/bin/env python3
+"""Create the two host settings files interactively; preserve existing settings."""
+import argparse
+import json
+from pathlib import Path
+import re
+import tempfile
+from _support import ROOT, finish, host, say, run, Failure
+from athenaeum_ops.common import directory, regular, load_config, guard_mount, compose
+
+DEST = Path('/etc/athenaeum')
+
+
+def ask(label, pattern, default=''):
+    """Reject shell/Compose interpolation characters before writing plain values.
+
+    Inputs are public configuration: never ask for a private age key or login
+    token. The files are still private because backup tooling treats all host
+    configuration as protected recovery material.
+    """
+    value = input(label + (f' [{default}]' if default else '') + ': ').strip() or default
+    if 'REPLACE' in value or not re.fullmatch(pattern, value):
+        raise Failure(f'Invalid {label}; rerun with the real value.')
+    return value
+
+
+def existing(directory):
+    paths = [directory / 'compose.env', directory / 'recovery.json']
+    if any(p.exists() or p.is_symlink() for p in paths):
+        if not all(p.is_file() for p in paths):
+            raise Failure('Only one settings file exists. Complete/review the existing files manually; nothing overwritten.')
+        for p in paths:
+            regular(p, private=True)
+        return True
+    return False
+
+
+def main():
+    argparse.ArgumentParser(description=__doc__).parse_args()
+    host()
+    if ROOT != Path('/opt/athenaeum/stack'):
+        raise Failure('Place this checkout at /opt/athenaeum/stack first.')
+    if DEST.exists():
+        directory(DEST)
+    if existing(DEST):
+        cfg = load_config(DEST / 'recovery.json')
+        guard_mount(cfg)
+        compose(cfg, 'config', '--quiet')
+        say('PASS: existing settings validated and preserved. Edit /etc/athenaeum files deliberately to change them.')
+        return
+    # Discover the UUID only from the exact mounted path. Looking up the parent
+    # filesystem would mistakenly accept the boot disk when the data disk is absent.
+    uuid = run(['findmnt', '--noheadings', '--mountpoint', '/srv/athenaeum', '-o', 'UUID']).decode().strip()
+    guard_mount({'mode': 'production', 'data_root': '/srv/athenaeum', 'filesystem_uuid': uuid})
+    say('Data UUID: ' + uuid + '\nEnter the public values from Part 1 and your local backup-key step.')
+    domain = ask('Site domain', r'[a-z0-9]+(?:[.-][a-z0-9]+)*\.[a-z]{2,}', 'valentemath.com')
+    email = ask('ACME contact email', r'[A-Za-z0-9_.+%-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}')
+    recipient = ask('Public age recipient', r'age1[0-9a-z]{58}')
+    token = r'[a-zA-Z0-9._-]+'
+    config = {'filesystem_uuid': uuid, 'recipient': recipient, 'store': {
+        'region': ask('Oracle region', token), 'namespace': ask('Object Storage namespace', token),
+        'bucket': ask('Backup bucket', token, 'athenaeum-backups')}}
+    config['bucket_cap_bytes'] = int(ask('Backup bucket cap in bytes', r'[1-9][0-9]*', '8000000000'))
+    environment = f'SITE_DOMAIN={domain}\nACME_EMAIL={email}\n'
+    # Validate both candidate files privately before creating either real file.
+    # JSON serialization avoids quoting mistakes in hand-written configuration.
+    with tempfile.TemporaryDirectory(prefix='athenaeum-config-') as temp:
+        staged = Path(temp) / 'recovery.json'
+        staged.write_text(json.dumps(config, indent=2) + '\n')
+        staged.chmod(0o600)
+        cfg = load_config(staged)
+        envfile = Path(temp) / 'compose.env'
+        envfile.write_text(environment)
+        envfile.chmod(0o600)
+        compose(dict(cfg, compose_env=str(envfile)), 'config', '--quiet')
+        DEST.mkdir(mode=0o700, exist_ok=True)
+        directory(DEST)
+        # Exclusive creation refuses a concurrent writer rather than clobbering
+        # its configuration. A partial disk-write failure is explicit on rerun.
+        for name, content in [('compose.env', environment), ('recovery.json', staged.read_text())]:
+            with open(DEST / name, 'x') as file:
+                file.write(content)
+    say('PASS: /etc/athenaeum/compose.env and recovery.json created, mode 0600.\nThe service installer creates the persistent session key next.')
+
+
+if __name__ == '__main__':
+    finish(main)

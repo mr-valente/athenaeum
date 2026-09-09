@@ -1,12 +1,12 @@
 # Backup and recovery
 
-Phase D provides host-side SQLite snapshots, age encryption, native OCI object storage, bounded retention, isolated restore tests, and disk guards. It does not deploy the site, alter cloud resources, or migrate Cloud Run data. Phase E now supplies [release delivery and automatic updates](delivery.md).
+Phase D provides host-side SQLite snapshots, age encryption, native OCI object storage, bounded retention, isolated restore tests, and disk guards. It does not deploy the site, alter cloud resources, or migrate Cloud Run data. Images are built on the workstation and [updated manually with Compose](delivery.md).
 
 ## What a recovery point contains
 
 - Quacktuaries SQLite database, captured with SQLite's online backup API.
 - Its persistent session-signing key.
-- The Compose environment, Compose definitions (including the managed image overlay), recovery configuration, release state.
+- The Compose environment, Compose definitions, and recovery configuration.
 - A manifest with schema version/hash, table counts, file checksums, image IDs/available repository digests, and architecture.
 
 There are no uploads in the current application. Additional files in its data directory are rejected until a consistent backup hook is added. Caddy certificates remain persistent on the live disk; they are deliberately **reissued** during disaster recovery rather than copied from an actively changing certificate cache. Static site files and container images are rebuilt or pulled from pinned releases, not archived.
@@ -43,7 +43,7 @@ Store the identity in your password manager. The second command prints the **pub
 
 On the prepared VM, copy `deploy/recovery.example.json` to `/etc/athenaeum/recovery.json` with mode `0600`. Fill in every `REPLACE_…` value. Set `filesystem_uuid` to the mounted ext4 data disk UUID. Check it with `findmnt -no UUID --mountpoint /srv/athenaeum`.
 
-Copy `deploy/production.env.example` to `/etc/athenaeum/compose.env` and set its three values. Keep both configuration files root-owned and mode 0600. The installer generates a strong session key for an empty new installation, owned by UID/GID 10001 and mode 0600. It preserves existing keys and refuses to invent a replacement underneath existing records.
+Copy `deploy/production.env.example` to `/etc/athenaeum/compose.env` and set the domain and contact email. Keep both configuration files root-owned and mode 0600. The installer generates a strong session key for an empty new installation, owned by UID/GID 10001 and mode 0600. It preserves existing keys and refuses to invent a replacement underneath existing records.
 
 Normal setup needs only the five values in `deploy/recovery.example.json`: filesystem UUID, public recipient, region, namespace, and bucket. Paths, retention limits, and tool locations have defaults in `ops/athenaeum_ops/common.py`.
 
@@ -75,7 +75,7 @@ sudo systemctl restart docker
 sudo athenaeumctl guard-mount
 ```
 
-The Docker drop-in preserves the guide's mountpoint guard and adds exact UUID validation. It binds Docker to `srv-athenaeum.mount`, so systemd stops Docker when that mount unit disappears. Docker `live-restore` must be disabled. A manual Docker/Compose invocation by root can bypass the supported preflight; use `athenaeumctl start` for the installed initial stack. That command requires existing local images and the metadata guard; it never pulls or builds. Use `deploy --initial` for the managed release installation described in [delivery.md](delivery.md).
+The Docker drop-in preserves the guide's mountpoint guard and adds exact UUID validation. It binds Docker to `srv-athenaeum.mount`, so systemd stops Docker when that mount unit disappears. Docker `live-restore` must be disabled. A manual Docker/Compose invocation by root can bypass the supported preflight; run `athenaeumctl preflight` before the manual Compose commands in [delivery.md](delivery.md). The optional `athenaeumctl start` command checks the mount and metadata guard and starts already-pulled images; it never pulls or builds.
 
 The metadata guard adds one idempotent `DOCKER-USER` rule rejecting Docker-forwarded traffic to `169.254.169.254`. It leaves host OUTPUT and unrelated firewall rules intact. This implementation requires Docker's iptables backend, not the alternative nftables backend. Verify container metadata denial and successful host instance authentication on Oracle before deployment; local tests do not establish either behavior there.
 
@@ -98,11 +98,13 @@ After a new snapshot and commit pass readback verification, retain the newest po
 
 If the next upload will exceed the cap, the backup fails before uploading or deleting anything. It does not delete the last good point to make room. Reduce data size, deliberately free reviewed obsolete objects, or change the allocation only after checking your allowance. A failed upload/commit can leave uncommitted ciphertext; it counts toward the cap and requires deliberate inspection. The tool never deletes unrelated objects or aborts someone else's multipart upload. Keep Oracle's incomplete-upload lifecycle cleanup configured.
 
-Backups, restores, and supported starts serialize on `/var/lib/athenaeum/operation.lock`. The Phase E updater uses this same lock and requires a fresh verified backup before every Quacktuaries update. Automatic schema-changing updates are refused. Direct manual application/config edits do not participate in that lock.
+Backups, restores, and supported starts serialize on `/var/lib/athenaeum/operation.lock`. Manual Compose commands do not participate in that lock; avoid concurrent updates and backup/restore operations. Take a verified backup before changing Quacktuaries images and plan schema changes explicitly.
 
 Plaintext staging is private and removed on success/failure. `ExecStopPost` and the next backup clean marked leftover staging after forced termination. Cleanup checks the mount and owner; it never searches or deletes arbitrary directories. File unlinking is cleanup, not guaranteed forensic erasure from SSDs/snapshots.
 
 ## Isolated restore test
+
+For the normal operator drill, follow Part 2's `ops/runbook/check-recovery` and `download-backup` steps. They make a fresh backup, select the current immutable image, test recovery in isolation, export ciphertext, and verify the workstation copy. The commands below remain available for restoring a specifically chosen older snapshot.
 
 Choose an explicit snapshot ID from `athenaeumctl list`. Obtain the matching Quacktuaries image from your recorded release and inspect its immutable ID/digest. Restores never choose or execute an image named only by untrusted archive content and never pull automatically.
 
@@ -118,7 +120,7 @@ sudo athenaeumctl restore-test \
 
 The target must be new and outside the live data root. The tool downloads the committed ciphertext, verifies its checksum, decrypts, rejects traversal/links/duplicates and oversized archives, verifies every manifest file, then runs SQLite integrity, foreign-key, schema, and row-count checks. It starts a **copy** of the recovered app data in a temporary non-root container with `--network none`, no published ports, and no production mounts. It checks health, the home page, and a saved session's HTTP state, then removes the test container. The validated restore directory remains private for inspection; the live database is untouched.
 
-`restore` performs the same data validation without starting an image. `restore-test` additionally verifies runtime behavior. An image mismatch is refused; cross-architecture recovery must use the matching recorded multi-platform repository digest. Local unpublished AMD64 image IDs cannot establish ARM compatibility.
+`restore` performs the same data validation without starting an image. `restore-test` additionally verifies runtime behavior. An image mismatch is refused. Keep the versioned Docker Hub image and its digest from the backup manifest, or retain an offline copy with `docker image save`. Pull the matching digest explicitly before testing on a replacement host. A rebuild or cross-architecture image requires separate compatibility review; use data-only `restore` first.
 
 ## External copy and recovery without the old VM
 
@@ -129,7 +131,7 @@ sudo athenaeumctl export --snapshot REPLACE_SNAPSHOT_ID \
   --output /var/tmp/athenaeum-REPLACE_SNAPSHOT_ID.age
 ```
 
-Move that encrypted file to storage outside Oracle. Copy the public repository URLs, image release/digests, resource IDs, data UUID, and key location into your private recovery notes. An encrypted backup contains configuration/secrets, so retain its decryption identity independently.
+Move that encrypted file to storage outside Oracle. Copy the public repository URLs, source commit SHAs and published image versions/digests, resource IDs, data UUID, and key location into your private recovery notes. An encrypted backup contains configuration/secrets, so retain its decryption identity independently.
 
 On a replacement machine, prepare a private recovery config/state directory and install the compatible operations dependencies and age. Offline restore needs no bucket, cloud credential, Docker, or old data mount:
 

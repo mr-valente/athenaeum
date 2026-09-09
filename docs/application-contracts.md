@@ -1,6 +1,6 @@
 # Application contracts
 
-Simplified baseline, 8 September 2026. **Current** describes implemented behavior; **target** describes work assigned to later phases. These are operational contracts, not an editorial project catalog.
+Simplified baseline, 9 September 2026. **Current** describes implemented behavior; **target** describes work assigned to later phases. These are operational contracts, not an editorial project catalog.
 
 ## Athenaeum
 
@@ -37,16 +37,16 @@ The independent sibling repository now supports the prefix through Uvicorn/FastA
 | Session cookie | `quacktuaries_session`, path `/quacktuaries`, host-only, SameSite=Lax and production Secure/HttpOnly |
 | Backup / restore | Implemented host tooling: SQLite online snapshot plus secret/config, schema/digest manifest, age encryption, isolated restore validation; host activation pending |
 | Health | `GET /_health`: read-only SQLite readiness, 200/503, hidden by the public edge |
-| Sleep / updates | Stay awake; private operations CLI drains in-flight requests and defers for any lobby/non-ended class; image updater preserves compatible rollback |
+| Sleep / updates | Stay awake; operator schedules manual Compose updates outside classroom use and takes a backup first |
 | ARM | All pinned dependencies have compatible ARM64 wheels; base image includes ARM64; native ARM runtime verification remains pending |
 | Style | Adopt a pinned shared design version later; current appearance is not the source |
 
-The old `quacktuaries.valentemath.com` deployment stays in place while the integration is built and tested. Preserve required data before replacing its ephemeral Cloud Run instance. Phase C implements local routing, cookie changes, persistence mounts, and health checks. Phase D adds backup/recovery and guards. Phase E implements native CI publication workflows, allowlisted digest updates, class deferral, pause, and compatible rollback. Cloud activation, final shared style, and live migration remain later work. The new local site links to `/quacktuaries/`; the running Cloud Run deployment is unchanged.
+The old `quacktuaries.valentemath.com` deployment stays in place while the integration is built and tested. Preserve required data before replacing its ephemeral Cloud Run instance. Phase C implements local routing, cookie changes, persistence mounts, and health checks. Phase D adds backup/recovery and guards. Delivery uses local ARM64 builds, Docker Hub images, and manual Compose updates/compatible version rollback. Cloud activation, final shared style, and live migration remain later work. The new local site links to `/quacktuaries/`; the running Cloud Run deployment is unchanged.
 
 ## Future application checklist
 
 For a new app, document its repository/service slug, public prefix, internal port, runtime/architectures, health/readiness behavior, owned writable paths, required secrets, consistent backup/restore hooks, browser-state namespace, jobs, sleep eligibility, and style version. Stateless applications explicitly declare no backup requirement.
 
-App prefixes must not overlap published Markdown routes or another app's prefix. Shared paths on the same domain are one browser origin, not security isolation. Only the edge accepts public traffic; each application owns only its own data. Compose supplies the approved image names; registry annotations supply version metadata. Infrastructure owns cloud permissions and backup storage.
+App prefixes must not overlap published Markdown routes or another app's prefix. Shared paths on the same domain are one browser origin, not security isolation. Only the edge accepts public traffic; each application owns only its own data. Compose uses explicit Docker Hub image references; the shared local builder publishes version tags. Infrastructure owns cloud permissions and backup storage.
 
 Use [the application skill](../skills/athenaeum-app/SKILL.md) and [implementation plan](implementation-plan.md) for the integration workflow and acceptance criteria. Add the human-facing project listing as Markdown using [the authoring guide](authoring.md); do not copy marketing text into operational configuration.

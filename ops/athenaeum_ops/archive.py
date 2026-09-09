@@ -80,10 +80,6 @@ def create_archive(cfg, staging, images):
     stable_copy(cfg['_source'], payload / 'config/recovery.json')
     for index, file in enumerate(compose_files(cfg)):
         stable_copy(file, payload / f'config/compose-{index}.yaml')
-    for name in ('releases.json',):
-        state_file = root / 'deploy-state' / name
-        if state_file.exists():
-            stable_copy(state_file, payload / 'config' / name)
     # TLS certificates can be reissued on a replacement VM. Never copy Caddy's
     # actively changing certificate cache as if it were a consistent snapshot.
     manifest = {'schema': 1, 'created_at': datetime.now(timezone.utc).isoformat(),

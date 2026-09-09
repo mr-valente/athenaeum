@@ -1,0 +1,50 @@
+#!/usr/bin/env python3
+"""Manually pull/start/update the production stack; no scheduler or auto rollback."""
+import argparse
+from pathlib import Path
+from _support import finish, installed_config, recovery_python, say, run, Failure
+from athenaeum_ops.common import operation_lock, preflight, validate_compose, compose
+from athenaeum_ops.cli import recorded_backup
+
+
+def operate(cfg, command):
+    # One lock spans the backup and container replacement, so the hourly backup
+    # cannot capture half of a manual update. This is the existing recovery lock,
+    # not another daemon, deployment queue, or release-state system.
+    with operation_lock(cfg):
+        say('Checking the data mount, configuration and metadata guard...')
+        preflight(cfg)
+        validate_compose(cfg)
+        run(['systemctl', 'is-active', '--quiet', 'athenaeum-metadata-guard.service'])
+        if command == 'update':
+            say('Backing up the current database, signing key, configuration and image references...')
+            result = recorded_backup(cfg)
+            say('Verified recovery point: ' + result['snapshot'])
+        elif command == 'start':
+            # start is only for an empty first install or an idempotent retry
+            # before the app creates its database. Existing records require the
+            # update path and its pre-update backup, even after failed startup.
+            if any((Path(cfg['data_root']) / 'apps/quacktuaries/data').iterdir()):
+                raise Failure('Existing app data: use stack update so a backup precedes replacement.')
+        say('Pulling the configured Docker Hub images; running containers stay in place...')
+        compose(cfg, 'pull')
+        if command == 'pull':
+            say('PASS: images downloaded. No containers were replaced.')
+            return
+        say('Starting downloaded images and waiting up to 120 seconds for health...')
+        compose(cfg, 'up', '--detach', '--no-build', '--pull', 'never', '--wait', '--wait-timeout', '120')
+        say(compose(cfg, 'ps').decode())
+        say('PASS: containers healthy. Run verify-site and check a classroom workflow.\nImage rollback is manual; persistent data has not been replaced.')
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('command', choices=['pull', 'start', 'update'], help='start: empty first install; update: verified backup then pull/up')
+    args = parser.parse_args()
+    cfg = installed_config()
+    recovery_python()
+    operate(cfg, args.command)
+
+
+if __name__ == '__main__':
+    finish(main)

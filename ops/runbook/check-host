@@ -1,0 +1,20 @@
+#!/usr/bin/env python3
+"""Read-only inventory before choosing the data disk; safe to repeat after reboot."""
+import argparse
+from _support import finish, host, visible, say
+
+
+def main():
+    argparse.ArgumentParser(description=__doc__).parse_args()
+    host(root=False)
+    # Show the whole block-device tree. The operator compares this with the
+    # Oracle attachment; a script cannot infer which disk they intended to use.
+    say('Ubuntu 26.04 ARM confirmed. Compare this inventory with Part 1:')
+    visible(['lsblk', '-o', 'NAME,PATH,SIZE,TYPE,FSTYPE,MOUNTPOINTS,SERIAL,UUID'])
+    visible(['findmnt', '/'])
+    visible(['python3', '--version'])
+    say('PASS: host identified. Choose the separate data volume before continuing.')
+
+
+if __name__ == '__main__':
+    finish(main)

@@ -18,9 +18,9 @@ Build one independently deployable container using the framework that fits the a
 
 For a stateless app, document that Git/image rebuilding is its recovery method. For stateful apps, read `docs/recovery.md` and add a consistent backup and isolated restore procedure. Use SQLite's backup API or the database's own export, never copy a live database file. Register uploads and required keys too.
 
-For automatic publication, follow `docs/delivery.md` and the sibling `ci/images.json`/`images.py` workflow. Build native AMD64 and ARM64 images. Metadata travels in the Docker image index; there are no GitHub release descriptors. Increment `schema_version` for incompatible data changes and plan maintenance. Do not add unattended migrations.
+For image delivery, follow `docs/delivery.md`: build locally for the VM's architecture, push to Docker Hub, and update manually with Compose over SSH. Add the image build to `docker/compose.yaml` and the shared Fish builder configuration as appropriate. Keep version tags for recovery. Plan incompatible database changes explicitly; do not add unattended migrations or image-update automation without a request.
 
-The current host updater has specific handling for Athenaeum, Caddy, and Quacktuaries. A new stateful app needs explicit backup/activity/rollback support before automatic updates; do not silently enroll it. Prefer an ordinary manual deployment initially over building a generic platform for a hypothetical future app. Extend automation when requested or required by the actual task.
+The current backup tooling knows Quacktuaries. A new stateful app needs its own consistent backup and restore support. Keep updates manual and scheduled outside active use.
 
 Verify the public prefix with a complete user workflow, including redirects/assets/cookies. For stateful apps, verify container replacement preserves records and a backup restores in isolation. Test native ARM when available and report pending checks honestly. Keep the existing deployment/data intact until an authorized migration is accepted.
 

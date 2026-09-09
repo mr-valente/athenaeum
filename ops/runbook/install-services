@@ -1,0 +1,35 @@
+#!/usr/bin/env python3
+"""Install recovery tools and activate disk/metadata guards during maintenance."""
+import argparse
+from _support import ROOT, CONFIG, finish, installed_config, say, visible
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--apply', action='store_true', help='Install tools and restart Docker; preview otherwise')
+    args = parser.parse_args()
+    installed_config()
+    say('Checking the existing installer plan and exact data mount...')
+    visible([ROOT / 'ops/install-host', '--config', CONFIG])
+    if not args.apply:
+        say('PREVIEW: --apply installs tools, activates guards and RESTARTS Docker.\nUse a maintenance window if this host already serves traffic.')
+        return
+    # Reuse the tested installer: it preserves session keys, refuses orphaned
+    # data, checks ownership, and saves replaced files in install-rollback-*.
+    visible([ROOT / 'ops/install-host', '--config', CONFIG, '--apply'])
+    say('Activating metadata protection, then restarting Docker to apply its disk guard...')
+    visible(['systemctl', 'enable', '--now', 'athenaeum-metadata-guard.service'])
+    visible(['systemctl', 'restart', 'docker'])
+    visible(['systemctl', 'is-active', 'docker', 'athenaeum-metadata-guard.service'])
+    visible(['athenaeumctl', 'preflight'])
+    visible(['iptables', '-C', 'DOCKER-USER', '-d', '169.254.169.254/32', '-m', 'comment',
+             '--comment', 'athenaeum-block-imds', '-j', 'REJECT'])
+    # Unlike preflight, list makes an actual Oracle request using the instance
+    # principal. It proves bucket READ access; the backup step proves writes.
+    say('Checking Oracle bucket read access (no user API key required)...')
+    visible(['athenaeumctl', 'list'])
+    say('PASS: guards active and bucket readable. Apps and the backup timer have not been enabled by this script.')
+
+
+if __name__ == '__main__':
+    finish(main)

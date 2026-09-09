@@ -1,0 +1,31 @@
+# Workstation image builds only. The production stack is ../compose.yaml.
+# Used by the shared Fish command: build athenaeum
+name: athenaeum-build
+
+x-build: &build
+  platform: linux/arm64
+  pull_policy: build
+
+services:
+  athenaeum:
+    <<: *build
+    image: valentemath/athenaeum:latest
+    build:
+      context: ..
+      labels:
+        org.opencontainers.image.version: ${ATHENAEUM_VERSION:-dev}
+  edge:
+    <<: *build
+    image: valentemath/athenaeum:latest-edge
+    build:
+      context: ..
+      dockerfile: docker/edge.Dockerfile
+      labels:
+        org.opencontainers.image.version: ${ATHENAEUM_VERSION:-dev}
+  quacktuaries:
+    <<: *build
+    image: valentemath/athenaeum:latest-quacktuaries
+    build:
+      context: ../../quacktuaries
+      labels:
+        org.opencontainers.image.version: ${ATHENAEUM_VERSION:-dev}

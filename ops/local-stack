@@ -49,7 +49,7 @@ if __name__ == '__main__':
             sys.exit('Run ops/local-stack init first.')
         # Shell variables must not accidentally select the production data/image paths.
         env = {key: value for key, value in os.environ.items() if key not in {
-            'DOCKERHUB_USERNAME', 'DATA_ROOT', 'QUACKTUARIES_SECRET_FILE', 'RUNTIME_UID', 'RUNTIME_GID',
+            'DATA_ROOT', 'QUACKTUARIES_SECRET_FILE', 'RUNTIME_UID', 'RUNTIME_GID',
             'SITE_DOMAIN', 'ACME_EMAIL', 'EDGE_IMAGE', 'ATHENAEUM_IMAGE', 'QUACKTUARIES_IMAGE',
             'LOCAL_HTTP_PORT', 'LOCAL_HTTPS_PORT',
             'COMPOSE_FILE', 'COMPOSE_PROJECT_NAME', 'COMPOSE_PROFILES', 'COMPOSE_ENV_FILES',

@@ -1,0 +1,69 @@
+#!/usr/bin/env python3
+"""Install Docker's official Ubuntu packages on the prepared ARM VM."""
+import argparse
+from pathlib import Path
+import subprocess
+import tempfile
+from _support import finish, host, say, visible, Failure
+
+SOURCES = '''Types: deb
+URIs: https://download.docker.com/linux/ubuntu
+Suites: resolute
+Components: stable
+Architectures: arm64
+Signed-By: /etc/apt/keyrings/docker.asc
+'''
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--apply', action='store_true', help='Install packages; otherwise show the plan')
+    args = parser.parse_args()
+    host()
+    # Do not silently remove an existing Docker/Podman/containerd installation.
+    # Conflicting distro packages require review, as documented by Docker.
+    for package in ('docker.io', 'docker-compose', 'docker-compose-v2', 'docker-doc', 'docker-buildx', 'podman-docker', 'containerd', 'runc'):
+        result = subprocess.run(['dpkg-query', '-W', '-f=${Status}', package], capture_output=True, text=True)
+        if result.returncode == 0 and result.stdout == 'install ok installed':
+            raise Failure(f'Conflicting package {package}; resolve it before installing Docker CE.')
+    source = Path('/etc/apt/sources.list.d/docker.sources')
+    if source.is_symlink() or (source.exists() and source.read_text() != SOURCES):
+        raise Failure('Existing docker.sources differs; review rather than overwrite it.')
+    # Also catch a legacy Docker repository entry that would make apt complain
+    # about different Signed-By values or silently use a second repository.
+    for other in [Path('/etc/apt/sources.list'), *source.parent.glob('*.list'), *source.parent.glob('*.sources')]:
+        if other != source and other.is_file() and 'download.docker.com' in other.read_text():
+            raise Failure(f'Existing Docker apt source in {other}; reconcile it first.')
+    say('Plan: official Docker repository; Docker CE + Compose, Python venv, curl, iptables, git, nano.\nDocker may start/restart during package installation. No full OS upgrade or reboot is performed.')
+    if not args.apply:
+        say('PREVIEW: repeat with --apply during host setup or a maintenance window.')
+        return
+    # apt prints its own progress. We use the official repository, not a remote
+    # shell installer, and leave Oracle's existing firewall rules untouched.
+    visible(['apt-get', 'update'])
+    visible(['apt-get', 'install', '-y', 'ca-certificates', 'curl', 'git', 'python3-venv', 'iptables', 'nano'])
+    Path('/etc/apt/keyrings').mkdir(mode=0o755, exist_ok=True)
+    key = Path('/etc/apt/keyrings/docker.asc')
+    if key.is_symlink():
+        raise Failure('Refusing symlink at Docker key path.')
+    with tempfile.TemporaryDirectory() as temp:
+        download = Path(temp) / 'docker.asc'
+        visible(['curl', '--fail', '--silent', '--show-error', '--location', '--max-time', '60',
+                 'https://download.docker.com/linux/ubuntu/gpg', '-o', download])
+        if key.exists() and key.read_bytes() != download.read_bytes():
+            raise Failure('Docker signing key changed; review the upstream key before replacing it.')
+        visible(['install', '-m', '0644', download, key])
+    if not source.exists():
+        source.write_text(SOURCES)
+        source.chmod(0o644)
+    visible(['apt-get', 'update'])
+    visible(['apt-get', 'install', '-y', 'docker-ce', 'docker-ce-cli', 'containerd.io', 'docker-compose-plugin'])
+    visible(['systemctl', 'enable', '--now', 'docker'])
+    visible(['docker', 'run', '--rm', 'hello-world'])
+    visible(['docker', 'compose', 'version'])
+    visible(['iptables', '-S', 'DOCKER-USER'])
+    say('PASS: Docker and Compose installed; Docker iptables chain exists.')
+
+
+if __name__ == '__main__':
+    finish(main)

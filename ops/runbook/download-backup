@@ -1,0 +1,48 @@
+#!/usr/bin/env python3
+"""Download the encrypted VM export to YOUR COMPUTER and verify its SHA256."""
+import argparse
+import hashlib
+from pathlib import Path
+import os
+import re
+import tempfile
+from _support import finish, say, visible, Failure
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--host', required=True, help='VM IPv4 or DNS name; login is ubuntu')
+    parser.add_argument('--ssh-key', type=Path, default=Path.home() / '.ssh/athenaeum-oracle')
+    parser.add_argument('--remote', required=True, help='Absolute encrypted export path under /home/ubuntu/')
+    parser.add_argument('--sha256', required=True, help='Checksum printed by check-recovery')
+    parser.add_argument('--output', type=Path, required=True, help='New local file outside the checkout')
+    args = parser.parse_args()
+    if os.geteuid() == 0:
+        raise Failure('Run on your workstation as your regular user, without sudo.')
+    # Restrict the remote scp syntax to simple paths/hostnames. Never interpolate
+    # arbitrary shell expressions into a remote command or disable host checking.
+    if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9.-]*', args.host) or not re.fullmatch(r'/home/ubuntu/[A-Za-z0-9_-]+\.age', args.remote):
+        raise Failure('Use a plain VM host and /home/ubuntu/NAME.age export path.')
+    if not re.fullmatch(r'[a-fA-F0-9]{64}', args.sha256):
+        raise Failure('Supply the 64-character SHA256 from check-recovery.')
+    output = args.output.expanduser().absolute()
+    if output.exists() or output.is_symlink():
+        raise Failure('Local output already exists; choose a new filename.')
+    output.parent.mkdir(parents=True, mode=0o700, exist_ok=True)
+    # Download privately to the same filesystem. Publish the final name only
+    # after hashing succeeds. link() refuses an output created concurrently.
+    with tempfile.TemporaryDirectory(prefix='.athenaeum-download-', dir=output.parent) as temp:
+        staged = Path(temp) / 'backup.age'
+        visible(['scp', '-o', 'StrictHostKeyChecking=yes', '-i', args.ssh_key.expanduser(),
+                 f'ubuntu@{args.host}:{args.remote}', staged])
+        with staged.open('rb') as file:
+            actual = hashlib.file_digest(file, 'sha256').hexdigest()
+        if actual != args.sha256.lower():
+            raise Failure('Checksum mismatch; downloaded bytes not saved as a recovery copy.')
+        staged.chmod(0o600)
+        os.link(staged, output)
+    say('PASS: verified encrypted backup saved to ' + str(output))
+
+
+if __name__ == '__main__':
+    finish(main)

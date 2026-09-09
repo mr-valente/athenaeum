@@ -1,6 +1,6 @@
 # Athenaeum implementation plan
 
-Phases A–E are implemented locally. This revision replaces the earlier platform-heavy specification with the smaller architecture in [README](../README.md). Cloud deployment and migration remain pending.
+Content, local routing, persistence, recovery, and manual delivery are implemented locally. This revision replaces the earlier platform-heavy specification with the smaller architecture in [README](../README.md). Cloud deployment and migration remain pending.
 
 ## Build this
 
@@ -17,10 +17,11 @@ Keep the site and Quacktuaries running. Add Sablier only if measured resource us
 | `compose.yaml` | Three services, data mounts, private app network |
 | `compose.local.yaml`, `ops/local-stack` | Local builds and HTTPS testing |
 | `deploy/caddy/` | Public routes and TLS configuration |
-| `deploy/production.env.example` | Three ordinary deployment settings |
+| `deploy/production.env.example` | Domain, contact email, optional image overrides |
 | `deploy/recovery.example.json` | Disk and backup settings |
-| `.github/workflows/images.yml`, `ci/images.*` | Native images and Docker Hub publication |
-| `ops/` | Backup, restore, mount guards, and classroom-safe image updates |
+| `docker/compose.yaml` | Workstation ARM64 image builds for the shared Fish builder |
+| `ops/` | Backup, restore, mount guards, and local stack helper |
+| `ops/runbook/` | Commented operator scripts for host setup and manual maintenance |
 
 ## Preserve these behaviors
 
@@ -32,7 +33,7 @@ Keep the site and Quacktuaries running. Add Sablier only if measured resource us
 
 **Backups:** preserve the existing SQLite online snapshot, encryption, upload verification, bounded retention, and isolated restore. Back up signing keys and configuration with data. Keep the age identity outside the VM except during a restore. Object storage is a backup destination, not a live filesystem. Before adding uploads or another database, implement its actual consistency/restore needs.
 
-**Delivery:** push to GitHub; CI tests native AMD64 and ARM64, then publishes Docker Hub indexes. The host checks every 15 minutes, fixes the image digest, and updates only the affected app. Protect active classrooms, back up first, check health/HTTPS, and retain a compatible previous image. Use systemd for scheduling and the existing pause command. Schema-changing updates require a maintenance task; never restore old data automatically to make an image rollback succeed.
+**Delivery:** build on the workstation with the shared Fish command, push three versioned ARM64 images to Docker Hub, then SSH to the VM and manually run Compose pull/up. Take a backup and choose a break in classroom use. Verify health/HTTPS; pin a compatible retained version if rollback is needed. Schema changes need a maintenance plan. Add image-update automation only if requested later.
 
 **Networks:** owned apps share one private Docker network; Docker assigns addresses and resolves service names. Treat the apps as trusted peers. Untrusted apps or executable user content need a separately considered network/origin boundary. Do not add manual IP planning for routine apps. [Compose networking](https://docs.docker.com/compose/how-tos/networking/).
 
@@ -43,7 +44,7 @@ Keep the site and Quacktuaries running. Add Sablier only if measured resource us
 | Phase | Work | Acceptance |
 | --- | --- | --- |
 | F — presentation | Select style, apply shared CSS to both apps | Keyboard, mobile, charts/math, and print review |
-| G — Oracle deployment | Follow the operator guide; publish images and configure the VM | Native ARM startup, HTTPS, reboot persistence, metadata isolation, backup download and isolated restore |
+| G — Oracle deployment | Follow the operator guide; configure local builds and the VM | Native ARM startup, HTTPS, reboot persistence, metadata isolation, backup download and isolated restore |
 | H — migration | Export required Cloud Run records, import and validate, then perform the agreed cutover | Record counts, teacher/student workflows, old links, and recovery path verified |
 | I — optional sleeping | Consider Sablier only after measuring need | Wake/reboot behavior and active class protection verified |
 
@@ -53,10 +54,10 @@ Keep the Cloud Run subdomain running until migration is accepted. Cloud Run does
 
 ## Adding an app
 
-Use [the app skill](../skills/athenaeum-app/SKILL.md). Add its Compose service, Caddy route, reserved path, and Markdown project page. Start with ordinary container deployment. Extend backup/update handling only for the app's actual state and activity requirements; current host automation knows Quacktuaries, not an arbitrary database framework.
+Use [the app skill](../skills/athenaeum-app/SKILL.md). Add its Compose service, Caddy route, reserved path, and Markdown project page. Start with ordinary container deployment. Extend backup/recovery handling only for the app's actual state and activity requirements; current host automation knows Quacktuaries, not an arbitrary database framework.
 
 ## Verification and handoff
 
-Run tests appropriate to the changes: content/build tests for publishing, real prefixed workflows for routing, and isolated backup/update/rollback drills for operations. Use synthetic data. Preserve unrelated edits and `docs/hosting-research.pdf`.
+Run tests appropriate to the changes: content/build tests for publishing, real prefixed workflows for routing, and isolated backup/restore and manual container-replacement checks for operations. Use synthetic data. Preserve unrelated edits and `docs/hosting-research.pdf`.
 
-Keep the README, operator guide/PDF, and app skill consistent with actual commands. Report local tests, publication, host installation, native ARM execution, and migration separately. Inputs still needed: account/disk inventory, actual repository and image owners, recovery-key custody, selected style, and which Cloud Run data to migrate.
+Keep the README, Markdown operator guide, and app skill consistent with actual commands. Report local tests, image publication, host installation, native ARM execution, and migration separately. Inputs still needed: account/disk inventory, actual repository owners, recovery-key custody, selected style, and which Cloud Run data to migrate.

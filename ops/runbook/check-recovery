@@ -1,0 +1,64 @@
+#!/usr/bin/env python3
+"""Make a fresh backup, test an isolated restore, and export encrypted recovery bytes."""
+import argparse
+from pathlib import Path
+import os
+import shutil
+import tempfile
+import time
+from _support import finish, installed_config, recovery_python, say, Failure
+from athenaeum_ops.common import operation_lock, regular, directory, deployment
+from athenaeum_ops.cli import recorded_backup, write_status
+from athenaeum_ops.recovery import restore, export_snapshot
+from athenaeum_ops.runtime import test_runtime
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--identity', required=True, help='Private age identity temporarily transferred to the VM')
+    parser.add_argument('--export', required=True, help='New encrypted output file, e.g. /home/ubuntu/athenaeum-first.age')
+    args = parser.parse_args()
+    cfg = installed_config()
+    recovery_python()
+    identity = regular(args.identity, private=True)
+    output = Path(args.export).absolute()
+    directory(output.parent)
+    if output.exists() or output.is_symlink():
+        raise Failure('Export output already exists; choose a new filename.')
+    # The caller owns the supplied key. Copy it to private tmpfs-backed /run and
+    # remove only our copy on every ordinary failure/success. Never delete the
+    # original identity implicitly; the runbook removes the transferred copy.
+    with tempfile.TemporaryDirectory(prefix='athenaeum-key-', dir='/run') as temp:
+        key = Path(temp) / 'identity'
+        shutil.copyfile(identity, key)
+        key.chmod(0o600)
+        with operation_lock(cfg):
+            # Invalidate an older proof while this new drill is in progress.
+            # A failed drill must not accidentally allow timer activation.
+            write_status(cfg, 'last_restore_test', {'at': time.time(), 'status': 'running'})
+            say('1/4 Capturing a new verified backup and the current immutable app image...')
+            images = deployment(cfg)
+            backup = recorded_backup(cfg)
+            # mkdtemp reserves a unique parent; restore requires a target that
+            # does not exist. Both remain outside the live /srv data filesystem.
+            work = Path(tempfile.mkdtemp(prefix='athenaeum-restore-', dir='/var/tmp'))
+            target = work / 'restored'
+            say('2/4 Decrypting and validating into ' + str(target))
+            manifest = restore(cfg, str(target), str(key), identifier=backup['snapshot'])
+            say('3/4 Running the recovered app without network access or published ports...')
+            test_runtime(str(target), images['quacktuaries']['id'], manifest)
+            say('4/4 Exporting the verified ciphertext...')
+            exported = export_snapshot(cfg, backup['snapshot'], str(output))
+            # scp runs as the SSH login user, not root. Grant that same sudo
+            # operator ownership of the encrypted file, never of the live data.
+            if os.environ.get('SUDO_UID') and os.environ.get('SUDO_GID'):
+                os.chown(output, int(os.environ['SUDO_UID']), int(os.environ['SUDO_GID']))
+            write_status(cfg, 'last_restore_test', {'at': time.time(), 'status': 'ok', 'snapshot': backup['snapshot']})
+            say('PASS: backup decrypted, database validated, isolated runtime passed.\n'
+                + 'Snapshot: ' + backup['snapshot'] + '\nEncrypted export: ' + str(output)
+                + '\nSHA256: ' + exported['ciphertext_sha256'] + '\nRestored inspection copy: ' + str(target))
+    say('Temporary /run key removed. Remove your transferred identity file and download the encrypted export next.')
+
+
+if __name__ == '__main__':
+    finish(main)

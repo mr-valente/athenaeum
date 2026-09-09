@@ -29,7 +29,7 @@ class Fixture(unittest.TestCase):
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
         self.data = self.root / 'live'
-        for relative in ('apps/quacktuaries/data', 'edge/data', 'edge/config', 'backups/staging', 'deploy-state'):
+        for relative in ('apps/quacktuaries/data', 'edge/data', 'edge/config', 'backups/staging'):
             (self.data / relative).mkdir(parents=True, mode=0o700)
         self.database = self.data / 'apps/quacktuaries/data/app.db'
         with contextlib.closing(sqlite3.connect(self.database)) as db, db:

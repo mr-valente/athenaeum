@@ -9,7 +9,7 @@ Caddy (HTTPS)
 
 Block volume → live data
 Oracle bucket → encrypted backups
-GitHub push → Docker Hub → automatic update
+Local Fish build → Docker Hub → manual Compose update over SSH
 ```
 
 ## Start locally
@@ -23,32 +23,34 @@ Open `https://localhost:8443/`. The local certificate needs browser trust; see [
 
 Edit `content/` to publish pages, projects, and classroom resources. Navigation comes from the Markdown directory. See [authoring](docs/authoring.md).
 
-## Set up the VM
+## Build and deploy
 
-[Part 1: Oracle provisioning](<docs/guides/1 - athenaeum_oracle_gui_guide.md>) covers creating the VM and first SSH connection. Continue with **[Part 2: Ubuntu 26.04 host setup and deployment](docs/guides/2-oracle-setup-guide.md)**. Normal setup has **two configuration files**:
+In your normal Fish shell on this workstation:
 
-- `compose.env`: Docker Hub username, domain, contact email.
-- `recovery.json`: disk UUID, public backup key, Oracle region/namespace/bucket.
-
-There is also a generated session-secret file. It is persistent private data, not another settings document to maintain.
-
-After setup, editing Markdown or an app and pushing to GitHub is enough. CI tests both architectures and publishes images; the VM checks every 15 minutes. Quacktuaries waits until all classes/lobbies have ended and takes a verified backup before updating. Caddy updates are manual.
-
-## Everyday operations
-
-```bash
-sudo athenaeumctl status
-sudo athenaeumctl backup
-sudo athenaeumctl pause-updates
-sudo athenaeumctl resume-updates
-sudo athenaeumctl rollback quacktuaries
+```fish
+build athenaeum
 ```
 
-[Delivery](docs/delivery.md) covers updates and failures. [Recovery](docs/recovery.md) covers restoring data. The main [Compose file](compose.yaml) defines all three services; `compose.local.yaml` only supplies local builds, ports, and TLS.
+Your shared `~/.config/builder/builds.yaml` entry builds the site, edge, and sibling Quacktuaries app for ARM64 and pushes them to `valentemath/athenaeum` on Docker Hub. It publishes separate moving and versioned tags for each image. The first build asks for a starting version; use `build --version v0.1.0 athenaeum` to supply it explicitly.
 
-The simplification removes static container IPs, per-app subnet planning, CPU quotas, startup dependencies, GitHub release assets, a separate update allowlist, and custom maintenance-window configuration. Docker resolves service names, image metadata travels with the image, and systemd owns scheduling. App containers share one private network: it is appropriate for our trusted apps, not an isolation boundary between hostile tenants.
+[Part 1: Oracle provisioning](<docs/guides/1 - athenaeum_oracle_gui_guide.md>) covers creating the VM and first SSH connection. Continue with **[Part 2: Ubuntu 26.04 host setup and deployment](docs/guides/2-oracle-setup-guide.md)**. Normal setup has two configuration files:
 
-Disk guards, resource/log limits, encrypted backups, class deferral, and compatible image rollback remain. These protect actual data and classroom use. Schema-changing releases require a deliberate maintenance task.
+- `compose.env`: domain and contact email, with optional image-version overrides.
+- `recovery.json`: disk UUID, public backup key, Oracle region/namespace/bucket.
+
+The installer also generates a persistent session-secret file. After setup, SSH to the VM during a break in classroom use:
+
+```bash
+cd /opt/athenaeum/stack
+sudo ops/runbook/stack update
+sudo ops/runbook/verify-site
+```
+
+The [commented runbook scripts](ops/runbook) handle setup, mount checks, configuration, manual updates, HTTPS checks, and recovery drills. `stack update` holds the backup lock across a verified backup, image pull, and container replacement; a failure stops the sequence.
+
+The [manual delivery guide](docs/delivery.md) covers publishing, first startup, failed updates, and version rollback. [Recovery](docs/recovery.md) covers restoring data. Backups run hourly; image updates are manual.
+
+The root [Compose file](compose.yaml) defines production images and persistent data mounts. [docker/compose.yaml](docker/compose.yaml) supplies workstation release builds; `compose.local.yaml` supplies the local development stack. Disk guards, resource/log limits, encrypted backups, and persistent session keys remain in place.
 
 ## Continue building
 
@@ -59,4 +61,4 @@ Disk guards, resource/log limits, encrypted backups, class deferral, and compati
 
 > Create [APP] at `valentemath.com/[SLUG]/`. Read `skills/athenaeum-app/SKILL.md` in the Athenaeum checkout and its `style.md`, then build the app and integrate it.
 
-Status: the VM is provisioned and SSH works, as reported by the operator. Application tooling is implemented and tested locally. Image publication, live ARM application/backup verification, stack deployment, and Cloud Run migration are not yet verified here.
+Status: local build and recovery tooling is implemented. Docker Hub publication, live ARM stack deployment, Oracle backup verification, and Cloud Run migration require their operator checkpoints.

@@ -16,7 +16,7 @@ x-runtime: &runtime
 services:
   edge:
     <<: *runtime
-    image: ${EDGE_IMAGE:-docker.io/${DOCKERHUB_USERNAME:-}/athenaeum-edge:latest}
+    image: ${EDGE_IMAGE:-valentemath/athenaeum:latest-edge}
     user: ${RUNTIME_UID:-10001}:${RUNTIME_GID:-10001}
     mem_limit: 256m
     ports:
@@ -38,13 +38,13 @@ services:
 
   athenaeum:
     <<: *runtime
-    image: ${ATHENAEUM_IMAGE:-docker.io/${DOCKERHUB_USERNAME:-}/athenaeum:latest}
+    image: ${ATHENAEUM_IMAGE:-valentemath/athenaeum:latest}
     mem_limit: 256m
     networks: [apps]
 
   quacktuaries:
     <<: *runtime
-    image: ${QUACKTUARIES_IMAGE:-docker.io/${DOCKERHUB_USERNAME:-}/quacktuaries:latest}
+    image: ${QUACKTUARIES_IMAGE:-valentemath/athenaeum:latest-quacktuaries}
     user: ${RUNTIME_UID:-10001}:${RUNTIME_GID:-10001}
     mem_limit: 1g
     environment:

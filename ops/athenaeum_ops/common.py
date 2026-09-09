@@ -149,7 +149,7 @@ def guard_mount(cfg):
 def preflight(cfg):
     result = guard_mount(cfg)
     root = Path(cfg['data_root'])
-    for relative in ('apps/quacktuaries/data', 'edge/data', 'edge/config', 'backups/staging', 'deploy-state'):
+    for relative in ('apps/quacktuaries/data', 'edge/data', 'edge/config', 'backups/staging'):
         child = directory(root / relative)
         if child.stat().st_dev != root.stat().st_dev:
             raise Failure(f'Unexpected nested filesystem: {child}')
@@ -183,12 +183,7 @@ def operation_lock(cfg):
 
 
 def compose_files(cfg):
-    files = list(cfg['compose_files'])
-    managed = Path(cfg['data_root']) / 'deploy-state/images.json'
-    if managed.exists():
-        regular(managed, private=True)
-        files.append(str(managed))
-    return files
+    return list(cfg['compose_files'])
 
 
 def compose(cfg, *args):
@@ -197,7 +192,7 @@ def compose(cfg, *args):
         command += ['-f', file]
     # Explicit config is authoritative, not inherited interactive shell variables.
     env = {k: v for k, v in os.environ.items() if k not in {
-        'DOCKERHUB_USERNAME', 'DATA_ROOT', 'QUACKTUARIES_SECRET_FILE', 'EDGE_IMAGE', 'ATHENAEUM_IMAGE', 'QUACKTUARIES_IMAGE',
+        'DATA_ROOT', 'QUACKTUARIES_SECRET_FILE', 'EDGE_IMAGE', 'ATHENAEUM_IMAGE', 'QUACKTUARIES_IMAGE',
         'RUNTIME_UID', 'RUNTIME_GID', 'SITE_DOMAIN', 'ACME_EMAIL',
         'LOCAL_HTTP_PORT', 'LOCAL_HTTPS_PORT', 'COMPOSE_FILE', 'COMPOSE_PROJECT_NAME',
         'COMPOSE_PROFILES', 'COMPOSE_ENV_FILES'}}
