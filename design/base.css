@@ -1,0 +1,186 @@
+/* Provisional reading shell. Import tokens.css before this file. */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--ath-color-canvas);
+  color: var(--ath-color-text);
+  font-family: var(--ath-font-body);
+  font-size: var(--ath-font-size-body);
+  line-height: var(--ath-line-height-body);
+}
+
+a {
+  color: var(--ath-color-link);
+  text-underline-offset: 0.15em;
+}
+
+:focus-visible {
+  outline: var(--ath-focus-width) solid var(--ath-color-focus);
+  outline-offset: var(--ath-focus-offset);
+}
+
+h1 {
+  font-size: var(--ath-font-size-heading);
+  line-height: var(--ath-line-height-heading);
+}
+
+code,
+pre {
+  font-family: var(--ath-font-code);
+}
+
+.ath-page {
+  width: 100%;
+  max-width: calc(var(--ath-width-reading) + 2 * var(--ath-space-4));
+  margin-inline: auto;
+  padding: var(--ath-space-5) var(--ath-space-4);
+  overflow-wrap: anywhere;
+}
+
+.ath-header {
+  max-width: calc(var(--ath-width-reading) + 2 * var(--ath-space-4));
+  margin-inline: auto;
+  padding: var(--ath-space-4) var(--ath-space-4) 0;
+}
+
+.ath-header nav,
+.ath-breadcrumbs ol {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ath-space-3);
+}
+
+.ath-breadcrumbs ol {
+  padding: 0;
+  list-style: none;
+  font-size: 0.875rem;
+}
+
+.ath-breadcrumbs li + li::before {
+  content: '/';
+  margin-inline-end: var(--ath-space-3);
+}
+
+[aria-current='page'] {
+  font-weight: 650;
+}
+
+.ath-section-index ul {
+  list-style: none;
+  padding: 0;
+}
+
+.ath-section-index li {
+  padding-block: var(--ath-space-3);
+  border-block-start: 1px solid currentColor;
+}
+
+.ath-section-index p {
+  margin-block: var(--ath-space-1) 0;
+}
+
+.ath-prose img {
+  max-width: 100%;
+  height: auto;
+}
+
+.ath-prose pre,
+.ath-prose table,
+.ath-prose .katex-display {
+  overflow-x: auto;
+}
+
+.ath-prose pre {
+  padding: var(--ath-space-3);
+  border: 1px solid currentColor;
+  overflow-wrap: normal;
+}
+
+.ath-prose table {
+  display: block;
+  max-width: 100%;
+  border-collapse: collapse;
+}
+
+.ath-prose th,
+.ath-prose td {
+  text-align: start;
+  padding: var(--ath-space-2) var(--ath-space-3);
+  border: 1px solid currentColor;
+}
+
+.ath-prose blockquote {
+  margin-inline: 0;
+  padding-inline-start: var(--ath-space-3);
+  border-inline-start: 2px solid currentColor;
+}
+
+.ath-prose h2,
+.ath-prose h3 {
+  line-height: var(--ath-line-height-heading);
+  margin-block-start: var(--ath-space-5);
+}
+
+.ath-skip-link {
+  position: absolute;
+  inset-block-start: var(--ath-space-2);
+  inset-inline-start: var(--ath-space-2);
+  padding: var(--ath-space-2) var(--ath-space-3);
+  background: var(--ath-color-canvas);
+  transform: translateY(-200%);
+}
+
+.ath-skip-link:focus {
+  transform: none;
+}
+
+@media print {
+  body {
+    background: white;
+    color: black;
+    font-size: 11pt;
+  }
+
+  .ath-page {
+    max-width: none;
+    padding: 0;
+  }
+
+  .ath-skip-link,
+  .ath-header,
+  .ath-breadcrumbs {
+    display: none;
+  }
+
+  h1, h2, h3 {
+    break-after: avoid;
+  }
+
+  pre, blockquote, img, tr, .katex-display {
+    break-inside: avoid;
+  }
+
+  .ath-prose pre {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  .ath-prose table {
+    display: table;
+    width: 100%;
+    font-size: 0.9em;
+  }
+
+  .ath-prose .katex-display {
+    overflow: visible;
+  }
+
+  a {
+    color: inherit;
+  }
+}

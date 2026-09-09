@@ -1,0 +1,34 @@
+**
+!package.json
+!package-lock.json
+!.npmrc
+!astro.config.mjs
+!tsconfig.json
+!src/
+!src/**
+!design/
+!design/*.css
+!content/
+!content/**
+!deploy/
+!deploy/reserved-paths.json
+!docker/
+!docker/caddy.json
+!tests/
+!tests/**
+
+# Defense in depth for accidentally misplaced local configuration.
+**/.env*
+**/*.pem
+**/*.key
+**/*.db
+**/*.sqlite*
+
+!docker/edge.Dockerfile
+!deploy/caddy/
+!deploy/caddy/**
+**/node_modules/
+**/__pycache__/
+
+# Host operations and Docker drills run separately from the static build.
+tests/*.py

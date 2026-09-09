@@ -1,0 +1,11 @@
+[Unit]
+Description=Hourly Athenaeum recovery point
+
+[Timer]
+OnCalendar=hourly
+Persistent=true
+RandomizedDelaySec=0
+Unit=athenaeum-backup.service
+
+[Install]
+WantedBy=timers.target

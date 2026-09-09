@@ -1,0 +1,59 @@
+#!/usr/bin/env python3
+"""Local-only Compose wrapper. Does not install host services or change cloud resources."""
+import json
+import os
+from pathlib import Path
+import secrets
+import subprocess
+import sys
+
+ROOT = Path(__file__).resolve().parent.parent
+STATE = ROOT / '.state' / 'local'
+ENV = STATE / 'compose.env'
+
+
+def initialize():
+    STATE.mkdir(mode=0o700, parents=True, exist_ok=True)
+    for relative in ('edge/data', 'edge/config', 'apps/quacktuaries/data'):
+        (STATE / relative).mkdir(mode=0o700, parents=True, exist_ok=True)
+    secret = STATE / 'session-secret'
+    if not secret.exists():
+        if any((STATE / 'apps/quacktuaries/data').iterdir()):
+            sys.exit('Existing local data has no signing key. Restore session-secret; refusing to invalidate saved sessions.')
+        with open(secret, 'x', opener=lambda path, flags: os.open(path, flags, 0o600)) as file:
+            file.write(secrets.token_hex(32) + '\n')
+    if not ENV.exists():
+        values = {
+            'DATA_ROOT': str(STATE), 'QUACKTUARIES_SECRET_FILE': str(secret),
+            'RUNTIME_UID': str(os.getuid()), 'RUNTIME_GID': str(os.getgid()),
+            'SITE_DOMAIN': 'localhost', 'ACME_EMAIL': 'local@example.invalid',
+            'EDGE_IMAGE': 'athenaeum-edge:local', 'ATHENAEUM_IMAGE': 'athenaeum:local',
+            'QUACKTUARIES_IMAGE': 'quacktuaries:athenaeum-local',
+            'LOCAL_HTTP_PORT': '8080', 'LOCAL_HTTPS_PORT': '8443',
+        }
+        with open(ENV, 'x', opener=lambda path, flags: os.open(path, flags, 0o600)) as file:
+            for key, value in values.items():
+                # Compose interpolation, not shell code. Escape literal dollar signs.
+                file.write(key + '=' + json.dumps(value.replace('$', '$$')) + '\n')
+    print(f'Local configuration ready: {ENV}')
+    print('Existing data and session secrets preserved. Run ops/local-stack up --build --wait.')
+
+
+if __name__ == '__main__':
+    if len(sys.argv) < 2:
+        sys.exit('Usage: ops/local-stack init | up --build --wait | down | ps | logs | config --quiet | ...')
+    if sys.argv[1:] == ['init']:
+        initialize()
+    else:
+        if not ENV.is_file():
+            sys.exit('Run ops/local-stack init first.')
+        # Shell variables must not accidentally select the production data/image paths.
+        env = {key: value for key, value in os.environ.items() if key not in {
+            'DOCKERHUB_USERNAME', 'DATA_ROOT', 'QUACKTUARIES_SECRET_FILE', 'RUNTIME_UID', 'RUNTIME_GID',
+            'SITE_DOMAIN', 'ACME_EMAIL', 'EDGE_IMAGE', 'ATHENAEUM_IMAGE', 'QUACKTUARIES_IMAGE',
+            'LOCAL_HTTP_PORT', 'LOCAL_HTTPS_PORT',
+            'COMPOSE_FILE', 'COMPOSE_PROJECT_NAME', 'COMPOSE_PROFILES', 'COMPOSE_ENV_FILES',
+        }}
+        command = ['docker', 'compose', '--project-name', 'athenaeum-local', '--env-file', str(ENV),
+                   '-f', str(ROOT / 'compose.yaml'), '-f', str(ROOT / 'compose.local.yaml'), *sys.argv[1:]]
+        sys.exit(subprocess.call(command, cwd=ROOT, env=env))

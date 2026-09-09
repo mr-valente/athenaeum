@@ -1,0 +1,74 @@
+name: athenaeum
+
+# Shared container defaults; each service below adds its image and data.
+x-runtime: &runtime
+  restart: unless-stopped
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  stop_grace_period: 30s
+  logging:
+    driver: json-file
+    options:
+      max-size: 10m
+      max-file: '3'
+
+services:
+  edge:
+    <<: *runtime
+    image: ${EDGE_IMAGE:-docker.io/${DOCKERHUB_USERNAME:-}/athenaeum-edge:latest}
+    user: ${RUNTIME_UID:-10001}:${RUNTIME_GID:-10001}
+    mem_limit: 256m
+    ports:
+      - '80:8080'
+      - '443:8443'
+    environment:
+      SITE_DOMAIN: ${SITE_DOMAIN:-valentemath.com}
+      ACME_EMAIL: ${ACME_EMAIL:?Set the ACME contact email}
+    volumes:
+      - type: bind
+        source: ${DATA_ROOT:-/srv/athenaeum}/edge/data
+        target: /data
+        bind: {create_host_path: false}
+      - type: bind
+        source: ${DATA_ROOT:-/srv/athenaeum}/edge/config
+        target: /config
+        bind: {create_host_path: false}
+    networks: [default, apps]
+
+  athenaeum:
+    <<: *runtime
+    image: ${ATHENAEUM_IMAGE:-docker.io/${DOCKERHUB_USERNAME:-}/athenaeum:latest}
+    mem_limit: 256m
+    networks: [apps]
+
+  quacktuaries:
+    <<: *runtime
+    image: ${QUACKTUARIES_IMAGE:-docker.io/${DOCKERHUB_USERNAME:-}/quacktuaries:latest}
+    user: ${RUNTIME_UID:-10001}:${RUNTIME_GID:-10001}
+    mem_limit: 1g
+    environment:
+      APP_ENV: production
+      ROOT_PATH: /quacktuaries
+      PORT: '8000'
+      DB_PATH: /data/app.db
+      SESSION_SECRET_FILE: /run/secrets/quacktuaries_session
+      # Only our trusted containers can reach this unpublished app port.
+      FORWARDED_ALLOW_IPS: '*'
+    secrets: [quacktuaries_session]
+    volumes:
+      - type: bind
+        source: ${DATA_ROOT:-/srv/athenaeum}/apps/quacktuaries/data
+        target: /data
+        bind: {create_host_path: false}
+    tmpfs:
+      - /tmp:size=16777216,mode=1777,noexec,nosuid,nodev
+    networks: [apps]
+
+networks:
+  apps:
+    internal: true
+
+secrets:
+  quacktuaries_session:
+    file: ${QUACKTUARIES_SECRET_FILE:-/etc/athenaeum/quacktuaries-session-secret}

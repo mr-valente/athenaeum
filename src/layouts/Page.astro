@@ -1,0 +1,49 @@
+---
+import '../../design/tokens.css';
+import '../../design/base.css';
+import 'katex/dist/katex.min.css';
+import { parentUrl, sortedPages } from '../lib/content.ts';
+import type { Page as ContentPage } from '../lib/content.ts';
+
+interface Props {
+  title: string;
+  description?: string;
+  pages?: ContentPage[];
+}
+
+const { title, description, pages = [] } = Astro.props;
+const canonical = new URL(Astro.url.pathname, Astro.site);
+const home = pages.find((page) => page.url === '/');
+const navigation = sortedPages(pages.filter((page) => parentUrl(page.url) === '/'));
+const breadcrumbs: ContentPage[] = [];
+for (let url = parentUrl(Astro.url.pathname); url; url = parentUrl(url)) {
+  const ancestor = pages.find((page) => page.url === url);
+  if (ancestor) breadcrumbs.unshift(ancestor);
+}
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    {description && <meta name="description" content={description} />}
+    <link rel="canonical" href={canonical} />
+  </head>
+  <body>
+    <a class="ath-skip-link" href="#main">Skip to content</a>
+    <header class="ath-header">
+      <nav aria-label="Main navigation">
+        <a href="/" aria-current={Astro.url.pathname === '/' ? 'page' : undefined}>{home?.title ?? 'Athenaeum'}</a>
+        {navigation.map((page) => <a href={page.url} aria-current={Astro.url.pathname === page.url ? 'page' : undefined}>{page.title}</a>)}
+      </nav>
+    </header>
+    <main id="main" class="ath-page" tabindex="-1">
+      {breadcrumbs.length > 0 && <nav aria-label="Breadcrumb" class="ath-breadcrumbs">
+        <ol>{breadcrumbs.map((page) => <li><a href={page.url}>{page.title}</a></li>)}<li aria-current="page">{title}</li></ol>
+      </nav>}
+      <slot />
+    </main>
+  </body>
+</html>

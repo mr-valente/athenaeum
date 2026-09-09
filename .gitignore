@@ -1,0 +1,24 @@
+# Build output and local caches
+node_modules/
+dist/
+.astro/
+.cache/
+*.tsbuildinfo
+npm-debug.log*
+__pycache__/
+
+# Local credentials, configuration, and runtime data
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.sqlite
+*.sqlite3
+*.db
+*.db-shm
+*.db-wal
+.state/
+
+# Operating system files
+.DS_Store

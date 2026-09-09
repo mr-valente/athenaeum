@@ -1,0 +1,19 @@
+# Requires Docker Compose >= 2.24.4 for !override. Use ops/local-stack.
+services:
+  edge:
+    build:
+      context: .
+      dockerfile: docker/edge.Dockerfile
+    pull_policy: never
+    ports: !override
+      - '127.0.0.1:${LOCAL_HTTP_PORT:-8080}:8080'
+      - '127.0.0.1:${LOCAL_HTTPS_PORT:-8443}:8443'
+    environment:
+      LOCAL_HTTPS_PORT: ${LOCAL_HTTPS_PORT:-8443}
+    command: [caddy, run, --config, /etc/caddy/Caddyfile.local, --adapter, caddyfile]
+  athenaeum:
+    build: .
+    pull_policy: never
+  quacktuaries:
+    build: ../quacktuaries
+    pull_policy: never

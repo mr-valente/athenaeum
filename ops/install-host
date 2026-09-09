@@ -1,0 +1,167 @@
+#!/usr/bin/env python3
+"""Install persistence and delivery tools. Preview by default; never provision."""
+import argparse
+import hashlib
+import json
+import os
+from pathlib import Path
+import platform
+import secrets
+import shutil
+import subprocess
+import sys
+import tarfile
+import tempfile
+import urllib.request
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from athenaeum_ops.common import Failure, directory, guard_mount, load_config, operation_lock, regular, run, validate_compose
+
+ROOT = Path(__file__).resolve().parent.parent
+AGE = {'x86_64': ('amd64', 'cbe24006683f8eb669266162894b9a522a1af52f2665fbc63a4bb032ed26ac10'),
+       'aarch64': ('arm64', '6b8dc4333c53a5a57c9e5834e3a48f92605d7154014cd07269ff3327db5d37f4')}
+
+
+def install_file(source, destination, rollback, mode=0o644):
+    destination = Path(destination)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    directory(destination.parent)
+    if destination.is_symlink():
+        raise Failure(f'Refusing to replace symlink: {destination}')
+    if destination.exists():
+        if destination.read_bytes() == Path(source).read_bytes():
+            return
+        saved = rollback / destination.relative_to('/')
+        saved.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(destination, saved)
+    temp = destination.with_name('.' + destination.name + '.athenaeum-new')
+    with open(temp, 'xb') as file:
+        file.write(Path(source).read_bytes())
+    os.chmod(temp, mode)
+    os.replace(temp, destination)
+
+
+def prepare_session_key(cfg):
+    """Create a key only for a new empty installation; never replace one."""
+    secret = Path(cfg['session_secret'])
+    if not secret.exists():
+        data = Path(cfg['data_root']) / 'apps/quacktuaries/data'
+        if data.exists() and any(data.iterdir()):
+            raise Failure('Existing app data has no signing key; restore the original key')
+        directory(secret.parent)
+        with open(secret, 'x', opener=lambda p, f: os.open(p, f, 0o600)) as file:
+            file.write(secrets.token_hex(32) + '\n')
+        os.chown(secret, 10001, 10001)
+    regular(secret, private=True)
+    if secret.stat().st_uid != 10001 or len(secret.read_text().strip()) < 32:
+        raise Failure('Session key must be strong, mode 0600 and owned by UID 10001')
+
+
+def install(args):
+    cfg = load_config(args.config)
+    if cfg['mode'] != 'production' or cfg['data_root'] != '/srv/athenaeum' or cfg['state_dir'] != '/var/lib/athenaeum':
+        raise Failure('Host installer requires production mode and the documented /srv and /var/lib paths')
+    if cfg['age_binary'] != '/opt/athenaeum/tools/age':
+        raise Failure('Host installer expects age_binary=/opt/athenaeum/tools/age')
+    guard_mount(cfg)
+    for file in [cfg['compose_env'], *cfg['compose_files']]:
+        regular(file, private=file == cfg['compose_env'])
+    if Path(cfg['session_secret']).exists():
+        regular(cfg['session_secret'], private=True)
+    if Path('/etc/docker/daemon.json').is_file():
+        daemon = json.loads(Path('/etc/docker/daemon.json').read_text())
+        if daemon.get('iptables') is False or daemon.get('firewall-backend') == 'nftables' or daemon.get('live-restore'):
+            raise Failure('Installer requires Docker iptables forwarding and live-restore disabled for the mount guard')
+    if platform.machine() not in AGE:
+        raise Failure('Supported host architectures: x86_64 and aarch64')
+    plan = {'data_uuid': cfg['filesystem_uuid'], 'operations': '/opt/athenaeum/operations',
+            'venv': '/opt/athenaeum/operations/venv', 'age': cfg['age_binary'],
+            'config': '/etc/athenaeum/recovery.json', 'state': cfg['state_dir'],
+            'units': ['athenaeum-backup.service', 'athenaeum-backup.timer', 'athenaeum-metadata-guard.service',
+                      'athenaeum-updates.service', 'athenaeum-updates.timer'],
+            'docker_drop_in': '/etc/systemd/system/docker.service.d/athenaeum-recovery.conf',
+            'apply': args.apply, 'services_started': False}
+    print(json.dumps(plan, indent=2))
+    if not args.apply:
+        return
+    if os.geteuid() != 0:
+        raise Failure('--apply requires root on the prepared Oracle host')
+    model = validate_compose(cfg)
+    for service in ('edge', 'quacktuaries'):
+        if model['services'][service].get('user') != '10001:10001':
+            raise Failure('Host installation requires production UID/GID 10001:10001')
+    run(['docker', 'version', '--format', '{{.Server.Version}}'])
+    run(['docker', 'buildx', 'version'])
+    run(['curl', '--version'])
+    run(['iptables', '--version'])
+    state = Path(cfg['state_dir'])
+    state.mkdir(mode=0o700, exist_ok=True)
+    directory(state)
+    os.chmod(state, 0o700)
+    with operation_lock(cfg):
+        prepare_session_key(cfg)
+        with tempfile.TemporaryDirectory(prefix='athenaeum-install-') as temp:
+            temp = Path(temp)
+            rollback = state / ('install-rollback-' + __import__('datetime').datetime.now().strftime('%Y%m%dT%H%M%S'))
+            rollback.mkdir(mode=0o700)
+            ops = Path('/opt/athenaeum/operations')
+            ops.mkdir(parents=True, exist_ok=True)
+            directory(ops)
+            for source in (ROOT / 'ops/athenaeum_ops').glob('*.py'):
+                install_file(source, ops / 'athenaeum_ops' / source.name, rollback)
+            for name in ('athenaeumctl', 'requirements.lock', 'metadata-guard'):
+                install_file(ROOT / 'ops' / name, ops / name, rollback, 0o755 if name != 'requirements.lock' else 0o644)
+            venv = ops / 'venv'
+            if venv.exists():
+                directory(venv)
+            if not (venv / 'bin/python').exists():
+                run(['python3', '-m', 'venv', venv])
+            run([venv / 'bin/python', '-m', 'pip', 'install', '--disable-pip-version-check', '-r', ops / 'requirements.lock'], timeout=600)
+            arch, expected = AGE[platform.machine()]
+            archive = temp / 'age.tgz'
+            with urllib.request.urlopen(f'https://github.com/FiloSottile/age/releases/download/v1.3.2/age-v1.3.2-linux-{arch}.tar.gz', timeout=60) as src:
+                archive.write_bytes(src.read(20_000_000))
+            if hashlib.sha256(archive.read_bytes()).hexdigest() != expected:
+                raise Failure('age release checksum mismatch')
+            with tarfile.open(archive) as tar:
+                for binary in ('age', 'age-keygen'):
+                    path = temp / binary
+                    path.write_bytes(tar.extractfile('age/' + binary).read())
+                    install_file(path, Path('/opt/athenaeum/tools') / binary, rollback, 0o755)
+            launcher = temp / 'athenaeumctl'
+            launcher.write_text('#!/bin/sh\nexec /opt/athenaeum/operations/venv/bin/python /opt/athenaeum/operations/athenaeumctl "$@"\n')
+            install_file(launcher, '/usr/local/sbin/athenaeumctl', rollback, 0o755)
+            install_file(cfg['_source'], '/etc/athenaeum/recovery.json', rollback, 0o600)
+            data = Path(cfg['data_root'])
+            for relative in ('apps/quacktuaries/data', 'edge/data', 'edge/config'):
+                dest = data / relative
+                if not dest.exists():
+                    dest.mkdir(parents=True, mode=0o700)
+                    os.chown(dest, 10001, 10001)
+                directory(dest)
+                if dest.stat().st_uid != 10001:
+                    raise Failure(f'Existing directory ownership needs deliberate review: {dest}')
+            for relative in ('backups/staging', 'deploy-state'):
+                dest = data / relative
+                dest.mkdir(parents=True, exist_ok=True, mode=0o700)
+                directory(dest)
+                os.chmod(dest, 0o700)
+            for name in ('athenaeum-backup.service', 'athenaeum-backup.timer', 'athenaeum-metadata-guard.service',
+                         'athenaeum-updates.service', 'athenaeum-updates.timer'):
+                install_file(ROOT / 'ops/systemd' / name, Path('/etc/systemd/system') / name, rollback)
+            install_file(ROOT / 'ops/systemd/athenaeum-docker-guard.conf',
+                         '/etc/systemd/system/docker.service.d/athenaeum-recovery.conf', rollback)
+            run(['systemctl', 'daemon-reload'])
+            print('Installed persistence/delivery files; existing files saved under ' + str(rollback))
+            print('No services restarted or timers enabled. Follow docs/recovery.md and docs/delivery.md for activation.')
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--config', required=True)
+    parser.add_argument('--apply', action='store_true')
+    try:
+        install(parser.parse_args())
+    except Exception as error:
+        print('install-host: ' + (str(error) if isinstance(error, Failure) else type(error).__name__ + ': installation failed'), file=sys.stderr)
+        sys.exit(1)

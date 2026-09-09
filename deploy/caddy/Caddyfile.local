@@ -1,0 +1,23 @@
+{
+	admin off
+	persist_config off
+	skip_install_trust
+	http_port 8080
+	https_port 8443
+}
+
+https://{$SITE_DOMAIN}:8443 {
+	tls internal
+	import /etc/caddy/routes.caddy
+}
+https://www.{$SITE_DOMAIN}:8443 {
+	tls internal
+	redir https://{$SITE_DOMAIN}:{$LOCAL_HTTPS_PORT:8443}{uri} 308
+}
+http://:8080 {
+	redir https://{$SITE_DOMAIN}:{$LOCAL_HTTPS_PORT:8443}{uri} 308
+}
+http://:8081 {
+	respond /_health "ok" 200
+	respond 404
+}

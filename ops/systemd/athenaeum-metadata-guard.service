@@ -1,0 +1,13 @@
+[Unit]
+Description=Block Docker-forwarded Oracle instance metadata
+Requires=docker.service
+After=docker.service
+PartOf=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/athenaeum/operations/metadata-guard
+RemainAfterExit=yes
+
+[Install]
+WantedBy=docker.service

@@ -1,0 +1,23 @@
+{
+	admin off
+	persist_config off
+	auto_https disable_redirects
+	email {$ACME_EMAIL}
+	http_port 8080
+	https_port 8443
+}
+
+{$SITE_DOMAIN} {
+	import /etc/caddy/routes.caddy
+}
+www.{$SITE_DOMAIN} {
+	redir https://{$SITE_DOMAIN}{uri} 308
+}
+http://{$SITE_DOMAIN}, http://www.{$SITE_DOMAIN} {
+	# Clients use public 443; 8443 is only the container listener.
+	redir https://{$SITE_DOMAIN}{uri} 308
+}
+http://:8081 {
+	respond /_health "ok" 200
+	respond 404
+}

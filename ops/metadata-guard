@@ -1,0 +1,16 @@
+#!/usr/bin/env python3
+"""Block Docker-forwarded OCI instance metadata; preserve unrelated firewall rules."""
+import subprocess
+import sys
+
+base = ['iptables', '-w', '5']
+rule = ['DOCKER-USER', '-d', '169.254.169.254/32', '-m', 'comment', '--comment', 'athenaeum-block-imds', '-j', 'REJECT']
+try:
+    subprocess.run(base + ['-S', 'DOCKER-USER'], check=True, capture_output=True, timeout=10)
+    found = subprocess.run(base + ['-C'] + rule, capture_output=True, timeout=10)
+    if found.returncode:
+        subprocess.run(base + ['-I', 'DOCKER-USER', '1'] + rule[1:], check=True, capture_output=True, timeout=10)
+    subprocess.run(base + ['-C'] + rule, check=True, capture_output=True, timeout=10)
+except (subprocess.SubprocessError, OSError):
+    sys.exit('Metadata guard failed; requires Docker iptables backend with DOCKER-USER chain')
+print('Docker-forwarded instance metadata blocked; host OUTPUT rules unchanged.')

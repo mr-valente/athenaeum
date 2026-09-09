@@ -1,0 +1,2 @@
+# Oracle Python SDK; host-only. Install in the dedicated operations venv.
+oci==2.185.1

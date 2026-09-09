@@ -1,0 +1,100 @@
+{
+  "admin": {
+    "disabled": true,
+    "config": {
+      "persist": false
+    }
+  },
+  "apps": {
+    "tls": {
+      "disable_storage_clean": true
+    },
+    "http": {
+      "servers": {
+        "static": {
+          "listen": [
+            ":8080"
+          ],
+          "protocols": [
+            "h1"
+          ],
+          "automatic_https": {
+            "disable": true
+          },
+          "routes": [
+            {
+              "handle": [
+                {
+                  "handler": "vars",
+                  "root": "/srv"
+                },
+                {
+                  "handler": "headers",
+                  "response": {
+                    "set": {
+                      "X-Content-Type-Options": [
+                        "nosniff"
+                      ],
+                      "Referrer-Policy": [
+                        "strict-origin-when-cross-origin"
+                      ]
+                    }
+                  }
+                },
+                {
+                  "handler": "encode",
+                  "encodings": {
+                    "gzip": {},
+                    "zstd": {}
+                  },
+                  "prefer": [
+                    "zstd",
+                    "gzip"
+                  ]
+                }
+              ]
+            },
+            {
+              "match": [
+                {
+                  "path": [
+                    "/_health"
+                  ]
+                }
+              ],
+              "handle": [
+                {
+                  "handler": "static_response",
+                  "status_code": 200,
+                  "body": "ok"
+                }
+              ]
+            },
+            {
+              "handle": [
+                {
+                  "handler": "file_server"
+                }
+              ]
+            }
+          ],
+          "errors": {
+            "routes": [
+              {
+                "handle": [
+                  {
+                    "handler": "rewrite",
+                    "uri": "/404.html"
+                  },
+                  {
+                    "handler": "file_server"
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      }
+    }
+  }
+}

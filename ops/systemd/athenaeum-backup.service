@@ -1,0 +1,24 @@
+[Unit]
+Description=Athenaeum encrypted recovery point
+After=network-online.target docker.service
+Wants=network-online.target
+RequiresMountsFor=/srv/athenaeum
+
+[Service]
+Type=oneshot
+User=root
+UMask=0077
+ExecStart=/usr/local/sbin/athenaeumctl backup
+ExecStopPost=/usr/local/sbin/athenaeumctl cleanup-staging
+TimeoutStartSec=30min
+TimeoutStopSec=60s
+KillMode=control-group
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/srv/athenaeum /var/lib/athenaeum
+ProtectHome=true
+MemoryMax=1G

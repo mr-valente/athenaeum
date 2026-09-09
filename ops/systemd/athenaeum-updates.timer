@@ -1,0 +1,11 @@
+[Unit]
+Description=Check Athenaeum releases every fifteen minutes
+
+[Timer]
+OnCalendar=*:0/15
+Persistent=true
+RandomizedDelaySec=0
+Unit=athenaeum-updates.service
+
+[Install]
+WantedBy=timers.target

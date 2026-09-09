@@ -1,0 +1,9 @@
+{
+  "filesystem_uuid": "REPLACE_WITH_DATA_FILESYSTEM_UUID",
+  "recipient": "REPLACE_WITH_AGE_PUBLIC_RECIPIENT",
+  "store": {
+    "region": "REPLACE_WITH_HOME_REGION",
+    "namespace": "REPLACE_WITH_NAMESPACE",
+    "bucket": "athenaeum-backups"
+  }
+}
