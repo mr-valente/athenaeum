@@ -66,7 +66,9 @@ def operation_in_progress(cfg):
     lock = directory(cfg['state_dir']) / 'operation.lock'
     if not lock.exists():
         return False
-    fd = os.open(lock, os.O_RDWR | os.O_NOFOLLOW)
+    # Read-only: flock() needs no write access, and the report unit runs with
+    # ProtectSystem=strict, under which opening this file for writing is EROFS.
+    fd = os.open(lock, os.O_RDONLY | os.O_NOFOLLOW)
     try:
         fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
     except BlockingIOError:

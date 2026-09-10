@@ -129,6 +129,12 @@ class ReportTests(Fixture):
         fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
         with patch.object(cli, 'stack_status', return_value={'containers': healthy_containers()}):
             self.assertTrue(report.build_report(self.cfg)['containers']['busy'])
+        # The systemd unit sees the state directory read-only; the probe must not need write access.
+        fcntl.flock(fd, fcntl.LOCK_UN)
+        os.chmod(lock, 0o400)
+        self.addCleanup(os.chmod, lock, 0o600)
+        with patch.object(cli, 'stack_status', return_value={'containers': healthy_containers()}):
+            self.assertFalse(report.build_report(self.cfg)['containers']['busy'])
 
     def test_publish_overwrites_one_bare_object_outside_the_prefix(self):
         with patch.object(cli, 'stack_status', return_value={'containers': healthy_containers()}):
