@@ -64,12 +64,23 @@ def print_status(result):
 
 def main():
     os.umask(0o077)
-    parser = argparse.ArgumentParser(description='Athenaeum host persistence and recovery')
+    from .commands import add_commands, dispatch
+    parser = argparse.ArgumentParser(
+        description='Athenaeum VM command center: Git, Docker, verification and recovery',
+        epilog='Daily: repo sync | docker pull --deploy | verify | status. Run any command with --help.')
     parser.add_argument('--config', default='/etc/athenaeum/recovery.json')
     sub = parser.add_subparsers(dest='command', required=True)
-    for command in ('guard-mount', 'preflight', 'start', 'backup', 'list', 'cleanup-staging'):
-        sub.add_parser(command)
-    status = sub.add_parser('status')
+    add_commands(sub)
+    for command, help_text in {
+        'guard-mount': 'Check the exact data mount (also used by systemd)',
+        'preflight': 'Check disk, free space, settings and persistent key',
+        'start': 'Legacy start using downloaded images; first setup uses the runbook',
+        'backup': 'Create and verify an encrypted backup now',
+        'list': 'List verified backup snapshots and bucket usage',
+        'cleanup-staging': 'Remove leftover temporary backup staging',
+    }.items():
+        sub.add_parser(command, help=help_text)
+    status = sub.add_parser('status', help='Show container health, disk space and backup freshness')
     status.add_argument('--json', action='store_true', help='Full diagnostic details')
     export = sub.add_parser('export')
     export.add_argument('--snapshot', required=True)
@@ -91,6 +102,8 @@ def main():
     signal.signal(signal.SIGTERM, terminated)
     try:
         cfg = load_config(args.config)
+        if dispatch(cfg, args):
+            return 0
         if args.command == 'guard-mount':
             result = guard_mount(cfg)  # Must work before Docker starts; no Docker or cloud call.
         else:
@@ -146,7 +159,10 @@ def main():
                                     or 'error' in stack or unhealthy))
         print(json.dumps(result, sort_keys=True))
         return 0
-    except (Exception, KeyboardInterrupt) as error:
+    except KeyboardInterrupt:
+        print('athenaeumctl: interrupted', file=sys.stderr)
+        return 130
+    except Exception as error:
         message = str(error) if isinstance(error, Failure) else f'{type(error).__name__}: operation failed; inspect configuration, permissions and provider access'
         print('athenaeumctl: ' + message, file=sys.stderr)
         return 1

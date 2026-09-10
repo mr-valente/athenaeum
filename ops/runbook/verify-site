@@ -1,65 +1,13 @@
 #!/usr/bin/env python3
 """Verify public HTTPS routes and container metadata isolation without changing data."""
 import argparse
-import urllib.request
-from urllib.error import HTTPError
-from urllib.parse import urljoin
-from _support import finish, installed_config, say, run, Failure
-from athenaeum_ops.common import preflight, validate_compose, compose
-from athenaeum_ops.cli import stack_status, SERVICES
-
-
-class NoRedirect(urllib.request.HTTPRedirectHandler):
-    # Following a redirect would hide a wrong Location or status code.
-    def redirect_request(self, req, fp, code, msg, headers, newurl):
-        return None
-
-
-def probe(opener, url, status, location=None):
-    try:
-        response = opener.open(url, timeout=20)
-    except HTTPError as error:
-        response = error
-    with response:
-        actual_location = urljoin(url, response.headers.get('Location', ''))
-        if response.code != status or (location and actual_location != location):
-            raise Failure(f'HTTPS check failed for {url}: expected {status}' + (f' and Location {location}' if location else ''))
-    say(f'PASS: {status} {url}')
+from _support import finish, installed_config
+from athenaeum_ops.verification import NoRedirect, probe, verify
 
 
 def main():
     argparse.ArgumentParser(description=__doc__).parse_args()
-    cfg = installed_config()
-    preflight(cfg)
-    model = validate_compose(cfg)
-    status = stack_status(cfg)
-    if {c['Service'] for c in status['containers']} != set(SERVICES) or any(
-            c.get('State') != 'running' or c.get('Health') != 'healthy' for c in status['containers']):
-        raise Failure('Expected three running healthy containers; run stack update or inspect logs.')
-    domain = model['services']['edge']['environment']['SITE_DOMAIN']
-    origin = 'https://' + domain
-    opener = urllib.request.build_opener(NoRedirect)
-    probe(opener, origin + '/', 200)
-    probe(opener, origin + '/quacktuaries/', 200)
-    probe(opener, 'https://www.' + domain + '/', 308, origin + '/')
-    probe(opener, origin + '/quacktuaries?source=setup', 308, origin + '/quacktuaries/?source=setup')
-    # First prove wget itself works in the right container. A missing command or
-    # container must never be mistaken for successful metadata isolation.
-    edge = compose(cfg, 'ps', '--quiet', 'edge').decode().strip()
-    run(['docker', 'exec', edge, 'wget', '-q', '-O', '/dev/null', 'http://127.0.0.1:8081/_health'])
-    run(['iptables', '-C', 'DOCKER-USER', '-d', '169.254.169.254/32', '-m', 'comment',
-         '--comment', 'athenaeum-block-imds', '-j', 'REJECT'])
-    # BusyBox wget emits HTTP status lines even for 401/403. Any response means
-    # metadata is reachable. The response body always goes to /dev/null.
-    import subprocess
-    result = subprocess.run(['docker', 'exec', edge, 'wget', '-S', '-T', '3', '-O', '/dev/null',
-                             '--header=Authorization: Bearer Oracle', 'http://169.254.169.254/opc/v2/instance/'],
-                            capture_output=True, timeout=10)
-    stderr = result.stderr.decode(errors='replace')
-    if result.returncode == 0 or 'HTTP/' in stderr or not any(text in stderr.lower() for text in
-            ('connection refused', 'timed out', 'network is unreachable', 'no route to host')):
-        raise Failure('Metadata denial not proven. Inspect the Docker metadata guard; no response body was retained.')
-    say('PASS: container metadata access denied. Finish the browser classroom check in the runbook.')
+    verify(installed_config())
 
 
 if __name__ == '__main__':

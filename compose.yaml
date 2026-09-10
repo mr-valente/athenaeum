@@ -44,7 +44,7 @@ services:
 
   quacktuaries:
     <<: *runtime
-    image: ${QUACKTUARIES_IMAGE:-valentemath/athenaeum:latest-quacktuaries}
+    image: ${QUACKTUARIES_IMAGE:-valentemath/quacktuaries:latest-athenaeum}
     user: ${RUNTIME_UID:-10001}:${RUNTIME_GID:-10001}
     mem_limit: 1g
     environment:

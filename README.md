@@ -29,9 +29,12 @@ In your normal Fish shell on this workstation:
 
 ```fish
 build athenaeum
+build quacktuaries
 ```
 
-Your shared `~/.config/builder/builds.yaml` entry builds the site, edge, and sibling Quacktuaries app for ARM64 and pushes them to `valentemath/athenaeum` on Docker Hub. It publishes separate moving and versioned tags for each image. The first build asks for a starting version; use `build --version v0.1.0 athenaeum` to supply it explicitly.
+Your shared `~/.config/builder/builds.yaml` has independent entries: Athenaeum publishes its website and edge as `valentemath/athenaeum:latest` and `:latest-edge`; Quacktuaries publishes both `valentemath/quacktuaries:latest` (standalone) and `:latest-athenaeum` from its own checkout. Each project has its own version counter and retained version tags. Build only the project you changed.
+
+The first build asks for a starting version; `--version v0.1.0` supplies it explicitly. One `build quacktuaries` publishes both variants at the same Quacktuaries version, following Tailgate's multiple-output pattern.
 
 [Part 1: Oracle provisioning](<docs/guides/1 - athenaeum_oracle_gui_guide.md>) covers creating the VM and first SSH connection. Continue with **[Part 2: Ubuntu 26.04 host setup and deployment](docs/guides/2-oracle-setup-guide.md)**. Normal setup has two configuration files:
 
@@ -41,12 +44,11 @@ Your shared `~/.config/builder/builds.yaml` entry builds the site, edge, and sib
 The installer also generates a persistent session-secret file. After setup, SSH to the VM during a break in classroom use:
 
 ```bash
-cd /opt/athenaeum/stack
-sudo ops/runbook/stack update
-sudo ops/runbook/verify-site
+athenaeumctl docker pull --deploy
+athenaeumctl verify
 ```
 
-The [commented runbook scripts](ops/runbook) handle setup, mount checks, configuration, manual updates, HTTPS checks, and recovery drills. `stack update` holds the backup lock across a verified backup, image pull, and container replacement; a failure stops the sequence.
+The `athenaeumctl` command center works from any directory and invokes sudo automatically through your existing administrator policy. Use `repo sync` for Git changes, `self update` for host tools, and `docker pull --deploy` for a verified backup followed by image deployment. `status`, `verify`, and `docker logs` cover routine checks. See the [daily command reference](docs/delivery.md#daily-commands-on-the-vm) and [upgrade steps for an existing VM](docs/guides/2-oracle-setup-guide.md#upgrade-an-existing-vm-to-the-command-center). The [commented runbook scripts](ops/runbook) handle first setup and recovery drills.
 
 The [manual delivery guide](docs/delivery.md) covers publishing, first startup, failed updates, and version rollback. [Recovery](docs/recovery.md) covers restoring data. Backups run hourly; image updates are manual.
 
@@ -61,4 +63,4 @@ The root [Compose file](compose.yaml) defines production images and persistent d
 
 > Create [APP] at `valentemath.com/[SLUG]/`. Read `skills/athenaeum-app/SKILL.md` in the Athenaeum checkout and its `style.md`, then build the app and integrate it.
 
-Status: local build and recovery tooling is implemented. Docker Hub publication, live ARM stack deployment, Oracle backup verification, and Cloud Run migration require their operator checkpoints.
+The operator has completed the Oracle runbook and verified the live website and recovery checkpoints. Cloud Run data migration remains a separate operation.

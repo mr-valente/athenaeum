@@ -1,7 +1,28 @@
 #!/usr/bin/env python3
 """Install recovery tools and activate disk/metadata guards during maintenance."""
 import argparse
-from _support import ROOT, CONFIG, finish, installed_config, say, visible
+import subprocess
+from _support import ROOT, CONFIG, finish, installed_config, say, visible, Failure
+
+
+def ensure_python_venv(apply):
+    """Check the OS venv bootstrap even when Docker was installed separately.
+
+    A working python3 executable does not imply Ubuntu's optional ensurepip and
+    wheel packages are installed. Check before creating an incomplete venv;
+    --apply installs the same prerequisite as install-docker when it is missing.
+    """
+    command = ['python3', '-c', 'import ensurepip; ensurepip.version()']
+    if subprocess.run(command, capture_output=True).returncode == 0:
+        return
+    if not apply:
+        say('PREVIEW: Python venv bootstrap is missing; --apply will install python3-venv.')
+        return
+    say('Installing missing Ubuntu Python venv support...')
+    visible(['apt-get', 'update'])
+    visible(['apt-get', 'install', '-y', 'python3-venv'])
+    if subprocess.run(command, capture_output=True).returncode != 0:
+        raise Failure('Python venv support is still unavailable; check the python3 interpreter and Ubuntu packages.')
 
 
 def main():
@@ -11,6 +32,7 @@ def main():
     installed_config()
     say('Checking the existing installer plan and exact data mount...')
     visible([ROOT / 'ops/install-host', '--config', CONFIG])
+    ensure_python_venv(args.apply)
     if not args.apply:
         say('PREVIEW: --apply installs tools, activates guards and RESTARTS Docker.\nUse a maintenance window if this host already serves traffic.')
         return

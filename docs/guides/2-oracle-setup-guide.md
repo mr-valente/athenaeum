@@ -49,25 +49,18 @@ cd /home/nicholas/forge/athenaeum
 ssh -i "$HOME/.ssh/athenaeum-oracle" ubuntu@REPLACE_VM_IP
 ```
 
-Confirm you reached the expected machine using your known SSH host key. For the first source transfer, use the two terminals:
+Confirm you reached the expected machine using your known SSH host key. Keep the VM's public Compose and host scripts in a Git checkout so later workstation commits can be synced over SSH.
 
 **VM:**
 
 ```bash
+sudo apt-get update
+sudo apt-get install -y git
 sudo install -d -o ubuntu -g ubuntu /opt/athenaeum
-mkdir /opt/athenaeum/stack
+git clone https://github.com/mr-valente/athenaeum.git /opt/athenaeum/stack
 ```
 
-If `stack` already exists, inspect it and preserve local changes instead of replacing it. For an existing deployment, see [old automation cleanup](../delivery.md#if-the-old-automation-was-already-installed) before updating the checkout or running these scripts.
-
-**Your computer — Bash:** Copy only the host files needed by this runbook, including uncommitted script changes:
-
-```bash
-scp -i "$HOME/.ssh/athenaeum-oracle" -r compose.yaml deploy ops \
-  ubuntu@REPLACE_VM_IP:/opt/athenaeum/stack/
-```
-
-This excludes `.state/`, private configuration, databases, and local backup keys. If the current source is already committed and available in Git, cloning Athenaeum to that same path is an alternative. The VM needs no Quacktuaries source checkout.
+If `stack` already exists, preserve it rather than replacing it. An existing scp-based deployment can use the [command-center upgrade](#upgrade-an-existing-vm-to-the-command-center) below. The VM needs no Quacktuaries source checkout. Private configuration, keys and data remain outside this Git checkout.
 
 **VM:**
 
@@ -191,20 +184,52 @@ sudo ops/runbook/install-services
 sudo ops/runbook/install-services --apply
 ```
 
-The first invocation previews the existing installer. Apply:
+The first invocation previews the existing installer and checks Python venv support. Apply installs `python3-venv` if needed, then:
 
 1. Installs the isolated OCI SDK environment, checksum-pinned age tools, and `athenaeumctl`.
 2. Creates owned data directories and a strong session-signing key for an empty installation. Existing keys and data are preserved; replaced tool files have rollback copies under `/var/lib/athenaeum/install-rollback-*`.
 3. Activates the metadata guard and **restarts Docker** to apply its exact-UUID disk guard.
 4. Checks storage, the firewall rule, and actual Oracle bucket read access using the instance principal.
 
+The installer also places `athenaeumctl` on your normal PATH. It works from any directory and requests sudo automatically through your existing administrator policy. A password prompt may still appear; no new sudoers grant is installed.
+
 **Checkpoint:** Guards are active and `list` can read the bucket. No applications or backup timer have been enabled by this step. An empty snapshot list is expected. Upload permission is tested in step 9. If installation or bucket access fails, fix that checkpoint before starting the stack.
+
+### If recovery Python setup fails
+
+The installer prints the failing stage and the path to a private log under
+`/var/lib/athenaeum/install-rollback-*`. Read the exact file it names with
+`sudo less /path/to/log`. The log preserves Python/pip output; review it locally
+before sharing because package-index configuration can contain credentials.
+
+If the creation log reports missing `ensurepip` or the `venv` package, install
+Ubuntu's package, then retry:
+
+```bash
+sudo apt update
+sudo apt install python3-venv
+sudo ops/runbook/install-services --apply
+```
+
+`install-services --apply` now checks and installs missing Ubuntu venv support before invoking the installer. Retries repair a partially created Python environment and check that pip works.
+Your existing configuration, session key, and app records are preserved. There
+is no need to rerun `configure-host` or delete the environment.
+
+With an older installer that prints only `python3 failed or timed out`, expose
+the underlying creation error directly:
+
+```bash
+sudo python3 -m venv /opt/athenaeum/operations/venv
+```
+
+If that succeeds, retry `install-services --apply`. If it fails, use its actual
+error to resolve the cause; a missing package is only one possibility.
 
 ## 6. Build and publish images locally
 
-**Browser — Docker Hub:** Create or reuse the public `valentemath/athenaeum` repository. Public images let the VM pull without registry credentials. If you use a private repository, run `sudo docker login --username valentemath` on the VM with a read-only token before pulling.
+**Browser — Docker Hub:** Create or reuse the public `valentemath/athenaeum` and `valentemath/quacktuaries` repositories. Public images let the VM pull without registry credentials. If you use a private repository, run `sudo docker login --username valentemath` on the VM with a read-only token before pulling.
 
-Your Fish entry in `~/.config/builder/builds.yaml` uses `athenaeum/docker/compose.yaml`. It builds this checkout and the sibling `~/forge/quacktuaries` checkout for ARM64.
+Your Fish entries in `~/.config/builder/builds.yaml` build independently: `athenaeum` builds only the site and edge; `quacktuaries` uses its own checkout, recipe and version counter. Both default to ARM64 for Oracle.
 
 **Your computer — Fish:**
 
@@ -212,15 +237,19 @@ Your Fish entry in `~/.config/builder/builds.yaml` uses `athenaeum/docker/compos
 docker login --username valentemath
 build --dry-run --version v0.1.0 athenaeum
 build --version v0.1.0 athenaeum
+build --dry-run --version v0.1.0 quacktuaries
+build --version v0.1.0 quacktuaries
 ```
 
-Use the explicit version for the first release; later use `build athenaeum` to increment the patch version. Tests and builds read current local files, including uncommitted changes. Test classroom changes with `ops/local-stack` before publication and save reviewed source in Git. If pushing Quacktuaries source still triggers its old Cloud Run deployment, disable that trigger before the Git push and preserve required live records first.
+Use an explicit version for each first release. Later use `build athenaeum` or `build quacktuaries` for the project you changed; only its version increments. Tests and builds read current local files, including uncommitted changes. Test classroom changes with `ops/local-stack` before publication and save reviewed source in Git. If pushing Quacktuaries source still triggers its old Cloud Run deployment, disable that trigger before the Git push and preserve required live records first.
 
-| Service | Moving image tag in `valentemath/athenaeum` | First version tag |
+| Service | Moving image reference | Example version |
 |---|---|---|
-| Website | `latest` | `v0.1.0` |
-| Caddy edge | `latest-edge` | `v0.1.0-edge` |
-| Quacktuaries | `latest-quacktuaries` | `v0.1.0-quacktuaries` |
+| Website | `valentemath/athenaeum:latest` | `valentemath/athenaeum:v0.1.0` |
+| Caddy edge | `valentemath/athenaeum:latest-edge` | `valentemath/athenaeum:v0.1.0-edge` |
+| Quacktuaries on this site | `valentemath/quacktuaries:latest-athenaeum` | `valentemath/quacktuaries:v0.1.0-athenaeum` |
+
+The same `build quacktuaries` also publishes `valentemath/quacktuaries:latest` with root-path defaults for use outside Athenaeum. Both variants share one Quacktuaries version and publish together, like Tailgate's two image lines. The Athenaeum variant defaults to production and `/quacktuaries`, while runtime secrets and proxy trust remain in this site's Compose file. Athenaeum's version is independent.
 
 On an AMD64 workstation, Quacktuaries needs ARM emulation during build. If `/proc/sys/fs/binfmt_misc/qemu-aarch64` is missing after reboot, register it locally:
 
@@ -230,7 +259,7 @@ docker run --privileged --rm tonistiigi/binfmt --install arm64
 
 This registration lasts for the current boot. [Docker cross-platform builds](https://docs.docker.com/build/building/multi-platform/).
 
-**Checkpoint:** All builds and all six pushes succeeded. A partial push can leave the moving tags at different versions; finish publication before updating the VM. `--no-push --version v0.1.0` is available for a local build test that does not advance shared version state.
+**Checkpoint:** Both project builds and their pushes succeeded. A partial push may leave an individual project incompletely published; finish that build before updating the VM. `--no-push --version v0.1.0` is available for a local build test that does not advance shared version state.
 
 ## 7. Point DNS at Oracle
 
@@ -348,41 +377,55 @@ sudo athenaeumctl status
 
 ## Routine maintenance
 
-For an image update, test locally and publish all images:
+For an image update, test locally and publish the project you changed:
 
 **Your computer — Fish:**
 
 ```fish
+# Website or edge changes:
 build athenaeum
+# Quacktuaries changes (independent release):
+build quacktuaries
 ```
 
-Then, during a break in classroom use:
+Then, during a break in classroom use (from any VM directory):
 
 **VM:**
 
 ```bash
-cd /opt/athenaeum/stack
-sudo ops/runbook/stack update
-sudo ops/runbook/verify-site
+athenaeumctl docker pull --deploy
+athenaeumctl verify
 ```
 
 The update script takes a verified backup first, pulls images, and recreates changed containers while preserving bind-mounted records and keys. Failure stops the sequence. The shared lock prevents overlap with backups/restores invoked through these tools; direct Docker commands do not take that lock. There is no automatic class-activity check, schema migration, or image rollback.
 
-For manual rollback, set the affected image override in `/etc/athenaeum/compose.env` to a compatible retained version, then run `stack update` and `verify-site`. For example:
+For Git-managed Compose changes, edit/commit/push on your workstation, then use:
 
-```dotenv
-QUACKTUARIES_IMAGE=valentemath/athenaeum:v0.1.0-quacktuaries
+```bash
+athenaeumctl repo sync
+athenaeumctl docker deploy
+athenaeumctl verify
 ```
 
-An image rollback leaves the current database unchanged. Schema-incompatible releases need a separate [recovery plan](../recovery.md). Remove the override when ready to follow the moving tag again. [Delivery details](../delivery.md) include direct Compose equivalents and old automation cleanup.
+`repo sync` validates the fetched Compose configuration and fast-forwards a clean `main` checkout. It stops for local edits or diverged history and never changes containers. `docker deploy` backs up before applying Compose using already downloaded images; use `docker pull --deploy` if new image downloads are needed. If `ops/` changed, run `athenaeumctl self update` after sync to refresh installed tools without restarting Docker.
+
+Use `athenaeumctl status`, `docker ps`, `docker logs quacktuaries -f`, `backup`, and `list` for daily checks. See the [full daily command reference](../delivery.md#daily-commands-on-the-vm). Keep settings and image overrides in `/etc/athenaeum`, outside Git.
+
+For manual rollback, set the affected image override in `/etc/athenaeum/compose.env` to a compatible retained version, then run `athenaeumctl docker pull --deploy` and `athenaeumctl verify`. For example:
+
+```dotenv
+QUACKTUARIES_IMAGE=valentemath/quacktuaries:v0.1.0-athenaeum
+```
+
+An image rollback leaves the current database unchanged. Schema-incompatible releases need a separate [recovery plan](../recovery.md). Remove the override when ready to follow the moving tag again. [Delivery details](../delivery.md) include the command reference and old automation cleanup.
 
 | Task | VM command |
 |---|---|
-| Current health and backup age | `sudo athenaeumctl status` |
-| Full diagnostics | `sudo athenaeumctl status --json` |
-| Backup now | `sudo athenaeumctl backup` |
-| List recovery points | `sudo athenaeumctl list` |
-| Container logs | `sudo docker compose --env-file /etc/athenaeum/compose.env -f compose.yaml logs --tail 50` |
+| Current health and backup age | `athenaeumctl status` |
+| Full diagnostics | `athenaeumctl status --json` |
+| Backup now | `athenaeumctl backup` |
+| List recovery points | `athenaeumctl list` |
+| Container logs | `athenaeumctl docker logs --tail 50` |
 | Backup service logs | `sudo journalctl -u athenaeum-backup.service -n 50 --no-pager` |
 
 Monthly: check disk space, backup age, Oracle usage/account notices, and Ubuntu updates. Repeat step 9 with a new export filename. Retain published version images needed by backups. Review old `/var/tmp/athenaeum-restore-*` inspection copies before deleting only those you no longer need. Do not prune live volumes as routine maintenance.
@@ -397,10 +440,49 @@ Monthly: check disk space, backup age, Oracle usage/account notices, and Ubuntu 
 | Partial/invalid settings | Edit the named `/etc/athenaeum` files; do not invent a new key beneath existing data |
 | Bucket access denied | Recheck region, namespace, bucket settings, dynamic group, both IAM policies and propagation |
 | Backup fails before update | Resolve the backup error; current containers have not been replaced |
-| Pull fails | Finish all local pushes; verify tags and ARM64 availability; log in for private images |
+| Pull fails | Finish the affected project's pushes; verify tags and ARM64 availability; log in for private images |
 | Health/HTTPS fails | Inspect logs, DNS, OCI ports and certificate status; preserve data while correcting configuration |
 | Operation lock busy | Let the current backup/restore/update finish, then retry |
 | Export/output exists | Choose a new name; existing recovery copies are preserved |
 | Restore fails | Keep the last known-good backup and image; inspect errors before enabling the schedule |
 
 Local tests cannot prove Oracle permissions, actual ARM VM behavior, external DNS/HTTPS, or reboot recovery. The numbered checkpoints above are the acceptance test on your host. No script contacts Oracle or changes a host simply by viewing its source or running `--help`.
+
+## Upgrade an existing VM to the command center
+
+Use this once if you completed an earlier version of this runbook. The original `scp` setup may have no `.git` directory. This upgrade installs the new command launcher, then adopts or syncs Git while the existing containers keep running. No image rebuild or container redeployment is needed for this upgrade.
+
+**VM — Bash:** Clone the published source into a separate bootstrap directory. If that directory already exists from an earlier attempt, inspect it and use a new directory name instead of overwriting it.
+
+```bash
+git clone https://github.com/mr-valente/athenaeum.git "$HOME/athenaeum-bootstrap"
+sudo "$HOME/athenaeum-bootstrap/ops/install-host" \
+  --config /etc/athenaeum/recovery.json --apply
+```
+
+This calls the installer directly, which does **not restart Docker**. Do not use `install-services --apply` for this upgrade: that first-time activation command restarts Docker. Existing configuration, session key, data and enabled backups are preserved. Replaced tool files have rollback copies under `/var/lib/athenaeum/install-rollback-*`. If the hourly backup currently holds the lock, let it finish and retry.
+
+Choose the command matching the current stack directory:
+
+```bash
+if [ -e /opt/athenaeum/stack/.git ]; then
+  athenaeumctl repo sync
+else
+  athenaeumctl repo adopt
+fi
+```
+
+`repo adopt` clones `main`, validates its Compose configuration, and preserves the entire old copied directory under the private `/opt/athenaeum/.athenaeum-repo-*/previous-stack` path printed on success. It then puts the Git checkout at `/opt/athenaeum/stack`. Review any customizations in the preserved directory. Neither adoption nor sync replaces containers or changes `/etc` settings. An existing Git checkout with local changes stops for review instead of losing them.
+
+The earlier `QUACKTUARIES_IMAGE=valentemath/quacktuaries:latest-athenaeum` override can remain in `/etc/athenaeum/compose.env`; it matches the new default. Do not put that file or any keys in Git.
+
+Verify the result:
+
+```bash
+athenaeumctl repo status
+athenaeumctl docker images
+athenaeumctl verify
+athenaeumctl status
+```
+
+**Checkpoint:** The checkout is clean on `main`, Quacktuaries resolves to its own `latest-athenaeum` image, HTTPS/health checks pass, and backups are current. Future source updates use `repo sync`; follow with `self update` for host-tool changes or a deployment command for Compose/image changes. Keep the bootstrap and preserved source copies until satisfied with the upgrade.

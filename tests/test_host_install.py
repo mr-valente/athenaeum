@@ -86,3 +86,40 @@ class HostSetupTests(unittest.TestCase):
             install_file(source, dest, rollback, 0o600)
             self.assertEqual(saved.read_text(), 'old config')
             self.assertEqual(dest.stat().st_mode & 0o777, 0o600)
+
+    def test_install_failure_keeps_private_diagnostics_and_reports_stage(self):
+        step = runpy.run_path(str(OPS / 'install-host'))['install_step']
+        import sys
+        with tempfile.TemporaryDirectory() as temp:
+            log = Path(temp) / 'step.log'
+            with redirect_stdout(io.StringIO()) as output:
+                with self.assertRaisesRegex(Exception, 'Preparing Python: exited with status 7') as caught:
+                    step([sys.executable, '-c', "import sys; print('private-index-token', file=sys.stderr); sys.exit(7)"],
+                         'Preparing Python', log)
+            self.assertIn('sudo less ' + str(log), str(caught.exception))
+            self.assertNotIn('private-index-token', str(caught.exception) + output.getvalue())
+            self.assertIn('private-index-token', log.read_text())
+            self.assertEqual(log.stat().st_mode & 0o777, 0o600)
+
+    def test_install_timeout_reports_deadline_and_preserves_output(self):
+        step = runpy.run_path(str(OPS / 'install-host'))['install_step']
+        def execute(args, **kwargs):
+            kwargs['stdout'].write('partial diagnostic\n')
+            raise subprocess.TimeoutExpired(args, kwargs['timeout'])
+        with tempfile.TemporaryDirectory() as temp, patch('subprocess.run', side_effect=execute), redirect_stdout(io.StringIO()):
+            log = Path(temp) / 'timeout.log'
+            with self.assertRaisesRegex(Exception, 'timed out after 180 seconds'):
+                step(['python3', '-m', 'venv', '/fixture'], 'Preparing Python', log)
+            self.assertEqual(log.read_text(), 'partial diagnostic\n')
+
+    def test_incomplete_venv_is_repaired_even_when_python_exists(self):
+        prepare = runpy.run_path(str(OPS / 'install-host'))['prepare_venv']
+        calls = []
+        with tempfile.TemporaryDirectory() as temp:
+            venv = Path(temp) / 'venv'
+            (venv / 'bin').mkdir(parents=True)
+            (venv / 'bin/python').touch()
+            with patch.dict(prepare.__globals__, {'install_step': lambda args, *a, **kw: calls.append(args)}):
+                prepare(venv, Path(temp))
+            self.assertEqual(calls, [['python3', '-m', 'venv', venv], [venv / 'bin/python', '-m', 'pip', '--version']])
+            self.assertTrue((venv / 'bin/python').exists())

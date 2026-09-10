@@ -29,6 +29,7 @@ The independent sibling repository now supports the prefix through Uvicorn/FastA
 | Concern | Integration contract |
 | --- | --- |
 | Repository / service | Independent `quacktuaries` repository / `quacktuaries` |
+| Image / release | Own `valentemath/quacktuaries` repository and version counter; `latest` standalone, `latest-athenaeum` for this site |
 | Public URL | `/quacktuaries/`; reserve the whole path segment |
 | Internal port | 8000; never publish directly on the host |
 | Prefix handling | Edge strips the prefix; FastAPI knows its public root path; generated links/forms/assets/redirects must include it |

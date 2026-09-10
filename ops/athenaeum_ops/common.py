@@ -186,7 +186,8 @@ def compose_files(cfg):
     return list(cfg['compose_files'])
 
 
-def compose(cfg, *args):
+def compose_invocation(cfg, *args):
+    """Build one authoritative command for captured and interactive Compose use."""
     command = ['docker', 'compose', '--project-name', cfg['compose_project'], '--env-file', cfg['compose_env']]
     for file in compose_files(cfg):
         command += ['-f', file]
@@ -196,7 +197,21 @@ def compose(cfg, *args):
         'RUNTIME_UID', 'RUNTIME_GID', 'SITE_DOMAIN', 'ACME_EMAIL',
         'LOCAL_HTTP_PORT', 'LOCAL_HTTPS_PORT', 'COMPOSE_FILE', 'COMPOSE_PROJECT_NAME',
         'COMPOSE_PROFILES', 'COMPOSE_ENV_FILES'}}
-    return run(command + list(args), timeout=180, env=env)
+    return command + list(args), env
+
+
+def compose(cfg, *args):
+    command, env = compose_invocation(cfg, *args)
+    return run(command, timeout=180, env=env)
+
+
+def compose_visible(cfg, *args):
+    """Show requested Docker progress/logs; long pulls and log following can finish."""
+    command, env = compose_invocation(cfg, *args)
+    try:
+        subprocess.run(command, env=env, check=True)
+    except (subprocess.CalledProcessError, OSError):
+        raise Failure('Compose failed; inspect the output above. No later step was run.') from None
 
 
 def validate_compose(cfg):

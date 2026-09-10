@@ -22,6 +22,44 @@ AGE = {'x86_64': ('amd64', 'cbe24006683f8eb669266162894b9a522a1af52f2665fbc63a4b
        'aarch64': ('arm64', '6b8dc4333c53a5a57c9e5834e3a48f92605d7154014cd07269ff3327db5d37f4')}
 
 
+def install_step(args, label, log, timeout=180, hint=''):
+    """Keep full setup diagnostics in a private file, with a useful console error.
+
+    The general recovery runner suppresses child output because it can contain
+    secrets. Installation still needs actionable diagnostics: pip, for example,
+    can print credentials from a configured package index. Save both streams in
+    the root-private rollback directory instead of echoing them to the terminal.
+    Each attempt gets its own logs, so a retry preserves the previous failure.
+    """
+    print(label + f' (log: {log})', flush=True)
+    with open(log, 'x', opener=lambda path, flags: os.open(path, flags, 0o600)) as output:
+        try:
+            subprocess.run([str(a) for a in args], check=True, timeout=timeout,
+                           stdout=output, stderr=subprocess.STDOUT)
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired, OSError) as error:
+            if isinstance(error, subprocess.TimeoutExpired):
+                reason = f'timed out after {timeout} seconds'
+            elif isinstance(error, subprocess.CalledProcessError):
+                reason = f'exited with status {error.returncode}'
+            else:
+                reason = 'could not start'
+            raise Failure(f'{label}: {reason}. Inspect locally with sudo less {log}.'
+                          + (' ' + hint if hint else '')) from None
+
+
+def prepare_venv(venv, logs):
+    # A failed ensurepip step can leave bin/python behind. Its existence is not
+    # evidence of a usable environment. Re-running venv reuses the directory and
+    # bootstraps pip without --clear or removal of any installed packages.
+    if venv.exists():
+        directory(venv)
+    install_step(['python3', '-m', 'venv', venv], 'Preparing recovery Python environment',
+                 logs / 'python-venv.log',
+                 hint='If the log reports missing ensurepip, install Ubuntu python3-venv and retry.')
+    install_step([venv / 'bin/python', '-m', 'pip', '--version'], 'Checking recovery pip',
+                 logs / 'python-pip-check.log')
+
+
 def install_file(source, destination, rollback, mode=0o644):
     destination = Path(destination)
     destination.parent.mkdir(parents=True, exist_ok=True)
@@ -110,11 +148,10 @@ def install(args):
             for name in ('athenaeumctl', 'requirements.lock', 'metadata-guard'):
                 install_file(ROOT / 'ops' / name, ops / name, rollback, 0o755 if name != 'requirements.lock' else 0o644)
             venv = ops / 'venv'
-            if venv.exists():
-                directory(venv)
-            if not (venv / 'bin/python').exists():
-                run(['python3', '-m', 'venv', venv])
-            run([venv / 'bin/python', '-m', 'pip', 'install', '--disable-pip-version-check', '-r', ops / 'requirements.lock'], timeout=600)
+            prepare_venv(venv, rollback)
+            install_step([venv / 'bin/python', '-m', 'pip', 'install', '--disable-pip-version-check',
+                          '-r', ops / 'requirements.lock'], 'Installing recovery dependencies',
+                         rollback / 'python-dependencies.log', timeout=600)
             arch, expected = AGE[platform.machine()]
             archive = temp / 'age.tgz'
             with urllib.request.urlopen(f'https://github.com/FiloSottile/age/releases/download/v1.3.2/age-v1.3.2-linux-{arch}.tar.gz', timeout=60) as src:
@@ -126,9 +163,11 @@ def install(args):
                     path = temp / binary
                     path.write_bytes(tar.extractfile('age/' + binary).read())
                     install_file(path, Path('/opt/athenaeum/tools') / binary, rollback, 0o755)
-            launcher = temp / 'athenaeumctl'
-            launcher.write_text('#!/bin/sh\nexec /opt/athenaeum/operations/venv/bin/python /opt/athenaeum/operations/athenaeumctl "$@"\n')
-            install_file(launcher, '/usr/local/sbin/athenaeumctl', rollback, 0o755)
+            # /bin is on ordinary login PATHs; retain /sbin for installed units.
+            # The wrapper requests normal sudo authentication before accessing
+            # the private SDK environment; it adds no sudoers permissions.
+            for entry in ('/usr/local/bin/athenaeumctl', '/usr/local/sbin/athenaeumctl'):
+                install_file(ROOT / 'ops/athenaeum-launcher', entry, rollback, 0o755)
             install_file(cfg['_source'], '/etc/athenaeum/recovery.json', rollback, 0o600)
             data = Path(cfg['data_root'])
             for relative in ('apps/quacktuaries/data', 'edge/data', 'edge/config'):

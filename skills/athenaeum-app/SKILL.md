@@ -18,7 +18,25 @@ Build one independently deployable container using the framework that fits the a
 
 For a stateless app, document that Git/image rebuilding is its recovery method. For stateful apps, read `docs/recovery.md` and add a consistent backup and isolated restore procedure. Use SQLite's backup API or the database's own export, never copy a live database file. Register uploads and required keys too.
 
-For image delivery, follow `docs/delivery.md`: build locally for the VM's architecture, push to Docker Hub, and update manually with Compose over SSH. Add the image build to `docker/compose.yaml` and the shared Fish builder configuration as appropriate. Keep version tags for recovery. Plan incompatible database changes explicitly; do not add unattended migrations or image-update automation without a request.
+For image delivery, follow `docs/delivery.md`: build locally, push to Docker Hub, and update manually with Compose over SSH. Each app owns its source repository, release Dockerfile/Compose recipe, Docker Hub repository (`valentemath/<app>`), shared Fish `builds.yaml` entry, and SemVer component record in `versions.txt`. Releasing an app must not build or increment Athenaeum or another app. Athenaeum's `docker/compose.yaml` builds only its website and Caddy edge.
+
+Keep a general-purpose `valentemath/<app>:latest` image usable independently at the root path. Publish Athenaeum-specific defaults or assets as `valentemath/<app>:latest-athenaeum`, plus `<version>-athenaeum`. Follow Tailgate's multiple-output pattern in the shared `builds.yaml`: one Compose build produces both image lines, and one version resolution covers both. Use the app's own SemVer component and version build argument. For example:
+
+```yaml
+outputs:
+  standalone:
+    source_tag: latest
+    tags: latest {app}
+  athenaeum:
+    source_tag: latest-athenaeum
+    tags: latest-athenaeum {app}-athenaeum
+```
+
+Quacktuaries' `docker/compose.yaml` and Dockerfile demonstrate separate Compose services targeting standalone and hosted stages. Tags alone do not change behavior; apply only actual integration defaults to the hosted target. Keep standalone as the default Dockerfile target. Runtime secrets, volumes, domain and network trust remain deployment configuration.
+
+A normal `build <app>` publishes both variants together with that app's version, independently of Athenaeum's release. No separate `--tag-mod` invocation is needed for these fixed output lines. Configure Athenaeum's production service to pull `valentemath/<app>:latest-athenaeum`, with an optional pinned version override for rollback. Keep native development Compose behavior intact and make build architecture explicit for the target host.
+
+Verify the independent project dry runs, both published tag lines, standalone root-path behavior, and hosted prefix/production defaults. Keep version tags for recovery. Plan incompatible database changes explicitly; do not add unattended migrations or image-update automation without a request.
 
 The current backup tooling knows Quacktuaries. A new stateful app needs its own consistent backup and restore support. Keep updates manual and scheduled outside active use.
 

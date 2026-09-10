@@ -22,10 +22,3 @@ services:
       dockerfile: docker/edge.Dockerfile
       labels:
         org.opencontainers.image.version: ${ATHENAEUM_VERSION:-dev}
-  quacktuaries:
-    <<: *build
-    image: valentemath/athenaeum:latest-quacktuaries
-    build:
-      context: ../../quacktuaries
-      labels:
-        org.opencontainers.image.version: ${ATHENAEUM_VERSION:-dev}

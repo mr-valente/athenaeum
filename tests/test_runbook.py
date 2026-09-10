@@ -100,6 +100,24 @@ class RunbookTests(unittest.TestCase):
             probe(opener, 'https://example.test/quacktuaries?source=setup', 308,
                   'https://example.test/quacktuaries/?source=setup')
 
+    def test_python_prerequisite_preview_and_apply(self):
+        ensure = script('install-services')['ensure_python_venv']
+        for apply, installed in ((False, False), (True, False), (True, True)):
+            commands = []
+            outcomes = [SimpleNamespace(returncode=0 if installed else 1), SimpleNamespace(returncode=0)]
+            with patch.dict(ensure.__globals__, {'visible': lambda args: commands.append(args)}), \
+                 patch('subprocess.run', side_effect=outcomes), redirect_stdout(io.StringIO()):
+                ensure(apply)
+            self.assertEqual(commands, [['apt-get', 'update'], ['apt-get', 'install', '-y', 'python3-venv']]
+                             if apply and not installed else [])
+
+    def test_missing_python_after_package_install_stops(self):
+        ensure = script('install-services')['ensure_python_venv']
+        with patch.dict(ensure.__globals__, {'visible': lambda args: None}), \
+             patch('subprocess.run', return_value=SimpleNamespace(returncode=1)), redirect_stdout(io.StringIO()):
+            with self.assertRaisesRegex(Failure, 'still unavailable'):
+                ensure(True)
+
     def test_settings_preserve_existing_and_reject_partial_or_symlink(self):
         existing = script('configure-host')['existing']
         with tempfile.TemporaryDirectory() as temp:

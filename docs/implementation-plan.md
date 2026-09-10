@@ -33,7 +33,7 @@ Keep the site and Quacktuaries running. Add Sablier only if measured resource us
 
 **Backups:** preserve the existing SQLite online snapshot, encryption, upload verification, bounded retention, and isolated restore. Back up signing keys and configuration with data. Keep the age identity outside the VM except during a restore. Object storage is a backup destination, not a live filesystem. Before adding uploads or another database, implement its actual consistency/restore needs.
 
-**Delivery:** build on the workstation with the shared Fish command, push three versioned ARM64 images to Docker Hub, then SSH to the VM and manually run Compose pull/up. Take a backup and choose a break in classroom use. Verify health/HTTPS; pin a compatible retained version if rollback is needed. Schema changes need a maintenance plan. Add image-update automation only if requested later.
+**Delivery:** build on the workstation with the shared Fish command, publish the changed project's ARM64 images to its own Docker Hub repository with its own version counter, then SSH to the VM and manually run Compose pull/up. Take a backup and choose a break in classroom use. Verify health/HTTPS; pin a compatible retained version if rollback is needed. Schema changes need a maintenance plan. Add image-update automation only if requested later.
 
 **Networks:** owned apps share one private Docker network; Docker assigns addresses and resolves service names. Treat the apps as trusted peers. Untrusted apps or executable user content need a separately considered network/origin boundary. Do not add manual IP planning for routine apps. [Compose networking](https://docs.docker.com/compose/how-tos/networking/).
 
