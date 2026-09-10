@@ -8,6 +8,9 @@
 !src/**
 !design/
 !design/*.css
+!design/*.svg
+!design/fonts/
+!design/fonts/**
 !content/
 !content/**
 !deploy/

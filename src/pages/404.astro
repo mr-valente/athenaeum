@@ -4,6 +4,9 @@ import Page from '../layouts/Page.astro';
 const pages = (await getCollection('pages')).map((entry) => entry.data);
 ---
 <Page title="Page not found" pages={pages}>
-  <h1>Page not found</h1>
-  <p>This page may have moved. <a href="/">Return to Athenaeum.</a></p>
+  <div class="ath-prose">
+    <p class="ath-eyebrow">404 / Off the shelf</p>
+    <h1>Page not found</h1>
+    <p>This page may have moved. <a href="/">Return to Athenaeum.</a></p>
+  </div>
 </Page>

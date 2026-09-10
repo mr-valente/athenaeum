@@ -115,4 +115,4 @@ $$
 
 KaTeX renders at build time into HTML and MathML. Fonts are bundled locally; no runtime math script or CDN is required. Unsupported expressions fail the build. Tables, fenced code blocks, and footnotes use ordinary GitHub-flavored Markdown. See the unpublished `content/statistics/example.md` for a complete example.
 
-Use the browser's Print / Save as PDF command. Print styles hide site navigation, preserve readable math and tables, and wrap code. Check unusually wide equations and tables in print preview. The shared visual style remains provisional until `style.md` is filled in.
+Use the browser's Print / Save as PDF command. Print styles use white paper and black text, hide site navigation, preserve readable math and tables, and wrap code. Check unusually wide equations and tables in print preview. The site itself always uses the dark theme defined in `style.md`.

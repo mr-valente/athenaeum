@@ -40,7 +40,7 @@ In an agent environment, Astro may automatically start dev/preview in the backgr
 - `src/content.config.ts`: Astro content collection and development watcher.
 - `src/lib/assets.ts`: reference-only asset copying and development serving.
 - `src/pages/` and `src/layouts/`: static templates, sitemap, and 404 response.
-- `design/tokens.css` and `design/base.css`: provisional shared CSS. [style.md](../../style.md) remains unselected.
+- `design/tokens.css` and `design/base.css`: the dark After hours theme; [style.md](../../style.md) defines the design contract. `design/mark.svg` supplies the logo/favicon; `design/fonts/` contains local CaskaydiaCove webfonts and their license.
 - `deploy/reserved-paths.json`: application prefixes that Markdown cannot shadow.
 - `docker/caddy.json`: internal static server; the public edge is a separate service.
 

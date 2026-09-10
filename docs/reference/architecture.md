@@ -57,4 +57,4 @@ Record the app's service name, URL prefix, internal port, health behavior, data/
 
 Host tooling currently enumerates three services and one SQLite application. When adding a service, update status/verification/log choices and relevant tests. A stateful app also needs explicit preflight, snapshot, manifest and restore support; merely adding a data directory makes the current backup fail closed. Use the [app-creation skill](../../skills/athenaeum-app/SKILL.md).
 
-The shared CSS contract is provisional. Preserve the choices in [style.md](../../style.md); operating the system does not imply that visual-design decisions are complete.
+The shared CSS contract is defined in [style.md](../../style.md). Athenaeum uses the dark After hours theme; other applications adopt a pinned copy explicitly.

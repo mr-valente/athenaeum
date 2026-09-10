@@ -7,4 +7,4 @@ description: Mr. Valente's notes, projects, and classroom resources.
 
 Mr. Valente's notes, projects, and classroom resources.
 
-🚧 Under construction 🚧
+> A work in progress. Curiosity welcome.

@@ -4,6 +4,8 @@ import '../../design/base.css';
 import 'katex/dist/katex.min.css';
 import { parentUrl, sortedPages } from '../lib/content.ts';
 import type { Page as ContentPage } from '../lib/content.ts';
+import mark from '../../design/mark.svg?url';
+import regularFont from '../../design/fonts/caskaydia-cove-regular.woff2?url';
 
 interface Props {
   title: string;
@@ -14,6 +16,7 @@ interface Props {
 const { title, description, pages = [] } = Astro.props;
 const canonical = new URL(Astro.url.pathname, Astro.site);
 const home = pages.find((page) => page.url === '/');
+const isHome = Astro.url.pathname === '/';
 const navigation = sortedPages(pages.filter((page) => parentUrl(page.url) === '/'));
 const breadcrumbs: ContentPage[] = [];
 for (let url = parentUrl(Astro.url.pathname); url; url = parentUrl(url)) {
@@ -27,23 +30,34 @@ for (let url = parentUrl(Astro.url.pathname); url; url = parentUrl(url)) {
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="theme-color" content="#101516" />
     <title>{title}</title>
     {description && <meta name="description" content={description} />}
     <link rel="canonical" href={canonical} />
+    <link rel="icon" type="image/svg+xml" href={mark} />
+    <link rel="preload" href={regularFont} as="font" type="font/woff2" crossorigin />
   </head>
   <body>
     <a class="ath-skip-link" href="#main">Skip to content</a>
     <header class="ath-header">
+      <a class="ath-brand" href="/" aria-current={isHome ? 'page' : undefined}>
+        <img src={mark} alt="" width="38" height="38" />
+        <span>{home?.title ?? 'Athenaeum'}</span>
+      </a>
       <nav aria-label="Main navigation">
-        <a href="/" aria-current={Astro.url.pathname === '/' ? 'page' : undefined}>{home?.title ?? 'Athenaeum'}</a>
-        {navigation.map((page) => <a href={page.url} aria-current={Astro.url.pathname === page.url ? 'page' : undefined}>{page.title}</a>)}
+        {navigation.map((page) => <a href={page.url} aria-current={Astro.url.pathname === page.url ? 'page' : Astro.url.pathname.startsWith(page.url) ? 'true' : undefined}>{page.title}</a>)}
       </nav>
     </header>
-    <main id="main" class="ath-page" tabindex="-1">
+    <main id="main" class:list={['ath-page', { 'ath-home': isHome }]} tabindex="-1">
       {breadcrumbs.length > 0 && <nav aria-label="Breadcrumb" class="ath-breadcrumbs">
         <ol>{breadcrumbs.map((page) => <li><a href={page.url}>{page.title}</a></li>)}<li aria-current="page">{title}</li></ol>
       </nav>}
       <slot />
     </main>
+    <footer class="ath-footer">
+      <p>{home?.title ?? 'Athenaeum'} <span aria-hidden="true">/</span> Be excellent<span aria-hidden="true">_</span></p>
+      <p>Stay curious<span aria-hidden="true">_</span></p>
+    </footer>
   </body>
 </html>

@@ -1,9 +1,11 @@
-# Provisional shared design contract
+# Shared design contract
 
-Version: **0.1.0**. Status: **provisional**. The authority for selected visual decisions remains [style.md](../style.md).
+Version: **0.2.0**. Theme: **After hours**. See [style.md](../style.md) for the visual specification.
 
-Import `tokens.css`, then `base.css`. All shared variables use the `--ath-` prefix; reusable layout classes use `ath-`. The initial shell provides readable text, a bounded content width, keyboard focus, a skip link, tables, code, responsive local images, and print rules. It has no animations, final palette, or branding. The site bundles KaTeX fonts locally for math; body text uses system fonts.
+Import `tokens.css`, then `base.css`. Variables use the `--ath-` prefix; reusable classes use `ath-`. The static shell includes dark styling, responsive navigation and collection rows, keyboard focus, a skip link, Markdown reading styles, math, and print rules.
 
-The browser's system colors and fonts are temporary defaults. Their use is not a light/dark theme decision. The tokens and classes are the initial cross-framework interface; Quacktuaries has not adopted them yet. The current CSS includes math-compatible reading and print styles. Final component and chart decisions belong in style.md.
+CaskaydiaCove is bundled as two WOFF2 text subsets, about 107 KiB combined, with `font-display: swap`. See [font provenance and reproduction](fonts/README.md). KaTeX retains its existing local fonts. There is no runtime font request to another origin and no client JavaScript.
 
-For the current site, import these files directly at build time. When sharing these assets across repositories, bundle a pinned copy in each consumer. Do not fetch mutable styles at runtime. Record deliberate contract changes here and update consumers explicitly; the complete packaging/release workflow remains future work.
+`mark.svg` is a tesseract-inspired wireframe: two nested cubes joined at their eight corresponding corners, with the inner cube rotated 45 degrees counterclockwise relative to the outer cube. Mint outer edges and an ivory inner cube give it depth; there is no cursor dash. Astro imports the asset directly so the same source is used in every placement. The header's wordmark comes from the home Markdown title.
+
+For another framework or repository, bundle a pinned copy of the styles and their relative font assets; do not fetch mutable styles at runtime. Consumer adoption and deployment remain explicit.

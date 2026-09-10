@@ -1,25 +1,40 @@
-/*
- * Athenaeum design contract 0.1.0 — provisional, not an approved theme.
- * Replace values from style.md once selected. No Quacktuaries styling is used.
- * System colors and fonts avoid choosing a brand palette or downloading assets.
- */
+/* Athenaeum design contract 0.2.0 — After hours. See style.md. */
+@font-face {
+  font-family: 'CaskaydiaCove';
+  src: url('./fonts/caskaydia-cove-regular.woff2') format('woff2');
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'CaskaydiaCove';
+  src: url('./fonts/caskaydia-cove-bold.woff2') format('woff2');
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+}
 :root {
-  --ath-color-canvas: Canvas;
-  --ath-color-text: CanvasText;
-  --ath-color-link: LinkText;
-  --ath-color-focus: Highlight;
-  --ath-font-body: system-ui, sans-serif;
-  --ath-font-code: ui-monospace, monospace;
+  color-scheme: dark;
+  --ath-color-canvas: #101516;
+  --ath-color-surface: #171e20;
+  --ath-color-text: #e7e9e1;
+  --ath-color-muted: #a1ada8;
+  --ath-color-link: #a6dfb5;
+  --ath-color-focus: #e7c589;
+  --ath-color-border: #303c3b;
+  --ath-font-body: 'CaskaydiaCove', 'CaskaydiaCove Nerd Font', ui-monospace, monospace;
+  --ath-font-code: var(--ath-font-body);
   --ath-font-size-body: 1rem;
-  --ath-font-size-heading: 2rem;
-  --ath-line-height-body: 1.6;
-  --ath-line-height-heading: 1.2;
+  --ath-font-size-heading: clamp(2rem, 5vw, 3.25rem);
+  --ath-line-height-body: 1.8;
+  --ath-line-height-heading: 1.15;
   --ath-space-1: 0.25rem;
   --ath-space-2: 0.5rem;
   --ath-space-3: 1rem;
   --ath-space-4: 1.5rem;
   --ath-space-5: 3rem;
-  --ath-width-reading: 68ch;
+  --ath-width-reading: 72ch;
+  --ath-width-shell: 64rem;
   --ath-focus-width: 2px;
-  --ath-focus-offset: 3px;
+  --ath-focus-offset: 5px;
 }

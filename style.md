@@ -1,36 +1,34 @@
 # Athenaeum shared style
 
-Status: visual specification not selected. This document is the future source of truth for Athenaeum, Quacktuaries, and subsequent applications.
+Version: **0.2.0**. Theme: **After hours**.
 
-## Established direction
+A small library after dark: ink and warm ivory, mint links, precise monospace typography, and the occasional quiet wink. Terminal influence comes from type, paths, and a cursor detail. Reading is the main event.
 
-- Minimal, sophisticated, and calm, with the economy of a good developer website.
-- Terminal influence is welcome; reading and teaching remain comfortable.
-- Whimsy should be small, intentional, and restrained.
-- Do not derive the design from Quacktuaries' current appearance.
-- Shared typography, spacing, controls, navigation, and interaction behavior across apps; framework-specific implementations are acceptable.
-- Accessible keyboard navigation, clear focus, readable mathematical notation, mobile layouts, print styles, and reduced-motion support.
-
-## Decisions to fill in later
+## Visual decisions
 
 | Area | Decision |
 | --- | --- |
-| Colors and contrast | Unselected |
-| Light/dark themes and default | Unselected |
-| Body, heading, code, and math fonts | Unselected |
-| Widths, spacing scale, and breakpoints | Unselected |
-| Borders, radii, shadows, and elevation | Unselected |
-| Header, breadcrumbs, and app switch/navigation | Unselected |
-| Links, buttons, forms, tables, and charts | Unselected |
-| Icons, illustration, and restrained whimsy | Unselected |
-| Loading, empty, error, and success states | Unselected |
-| Motion timings and reduced-motion alternative | Unselected |
-| Printable AP Statistics material | Unselected |
-| Reference screenshots and approved examples | Unselected |
-| Shared asset release/version | Unselected |
+| Theme | Dark only; no toggle, storage, or theme script. Paper prints white. |
+| Palette | Canvas `#101516`, surface `#171e20`, text `#e7e9e1`, muted text `#a1ada8`, mint `#a6dfb5`, amber focus `#e7c589`, borders `#303c3b`. |
+| Typography | Locally bundled CaskaydiaCove Nerd Font, regular and bold WOFF2 text subsets; system monospace fallback. KaTeX keeps its own local math fonts. |
+| Reading | 16px body, 1.8 line height, 72ch reading width. Shell capped at 64rem. Fluid headings, smaller navigation and metadata. |
+| Layout | Generous open space, a thin header rule, numbered collection rows, compact breadcrumbs, and a quiet footer. Single column on phones; breakpoint at 640px. |
+| Surfaces | Flat dark surfaces, 1px borders, 3–4px corner radii for code and controls. No shadows or glass effects. |
+| Branding | A tesseract-inspired wireframe: nested cubes, eight connecting edges, and an ivory center rotated 45 degrees counterclockwise inside mint geometry. No dash. One hand-authored SVG serves the header, home bookplate, and favicon. |
+| Links | Mint inline links with underlines. Collection rows are single full-row links. Project launch links have a mint outline. |
+| Accessibility | Semantic navigation, visible amber keyboard focus, skip link, wrapping navigation, and local scrolling for wide code, tables, and math. |
+| Motion | 160ms row hover and a 4px arrow movement. Reduced motion removes both. No looping or entrance animation. |
+| Markdown | Standard headings, prose, lists, quotes, code, tables, footnotes, images, and math receive styles automatically. No new frontmatter fields. |
+| Print | Black text, white paper, no decorative shell. Tables expand and code wraps; math keeps KaTeX rendering. |
+| Empty/error states | Plain text for empty collections; a small “404 / Off the shelf” label on the error page. |
+| Other apps | Controls, charts, loading indicators, and app-specific components remain consumer work. This change styles Athenaeum only. |
 
-## Instructions until decisions are made
+## Editing and delivery
 
-Build semantic layouts and functional behavior using a small, clearly provisional set of shared CSS variables. Do not select a final palette, commission branding, copy Quacktuaries' theme, or call the visual design complete. Continue infrastructure and functionality work. Request missing visual decisions when they prevent final visual acceptance, without blocking unrelated work.
+Page text and metadata stay in `content/`. Directories and existing frontmatter continue to determine navigation and collection listings. The home introduction, including its small work-in-progress note, is ordinary Markdown.
 
-Once populated, translate this document into versioned, framework-independent CSS tokens and common styles. Bundle a pinned copy with each app so one release cannot silently restyle another app. Changes to this document alone do not change deployed applications.
+Shared shell copy lives in `src/layouts/Page.astro`; collection labels and the home eyebrow live in `src/pages/[...page].astro`. Edit `design/tokens.css` for palette/type/spacing, `design/base.css` for presentation, and `design/mark.svg` for the mark. No browser JavaScript or external font service is required.
+
+Import tokens before base styles. Astro bundles fonts and the SVG from `design/`; the Docker build includes these assets. Font source, license, and reproducible subset instructions are in [design/fonts/README.md](design/fonts/README.md).
+
+The version is a shared design contract, independent of the application version. Other applications should bundle a deliberate, pinned copy when adopting it. Changing these files does not restyle or deploy Quacktuaries.
