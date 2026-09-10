@@ -1,10 +1,10 @@
 ---
-title: Athenaeum
-description: Public notes, projects, and classroom resources.
+title: Valente Math
+description: Mr. Valente's notes, projects, and classroom resources.
 ---
 
-# Athenaeum
+# Valente Math
 
-Public notes, projects, and classroom resources.
+Mr. Valente's notes, projects, and classroom resources.
 
-This collection is just getting started.
+🚧 Under construction 🚧

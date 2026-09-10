@@ -1,9 +1,9 @@
 ---
 title: Projects
-description: Applications and experiments.
+description: Apps and experiences.
 order: 20
 ---
 
 # Projects
 
-Applications and experiments, collected in one place.
+Apps and experiences.

@@ -6,4 +6,4 @@ order: 10
 
 # AP Statistics
 
-Classroom notes and resources will appear here as they are added.
+Classroom notes and resources will appear here.
