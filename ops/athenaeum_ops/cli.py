@@ -8,12 +8,11 @@ import sys
 import tempfile
 import time
 
-from .common import Failure, atomic_json, compose, guard_mount, load_config, operation_lock, preflight, validate_compose, run
+from .archive import applications
+from .common import SERVICES, Failure, atomic_json, compose, guard_mount, load_config, operation_lock, preflight, validate_compose, run
 from .recovery import backup, cleanup_staging, export_snapshot, load_commits, restore
-from .runtime import test_runtime
+from .runtime import select_images, test_runtime
 from .storage import open_store
-
-SERVICES = ('edge', 'athenaeum', 'quacktuaries')
 
 
 def write_status(cfg, key, value):
@@ -94,7 +93,8 @@ def main():
         p.add_argument('--target', required=True)
         p.add_argument('--identity', required=True)
         if command == 'restore-test':
-            p.add_argument('--image', required=True)
+            p.add_argument('--image', required=True, action='append', metavar='APP=REFERENCE',
+                           help='Immutable image ID or repository digest per restored application database')
     args = parser.parse_args()
     cfg = None
     def terminated(signum, frame):
@@ -134,9 +134,11 @@ def main():
                     result = export_snapshot(cfg, args.snapshot, args.output)
                 elif args.command in ('restore', 'restore-test'):
                     manifest = restore(cfg, args.target, args.identity, args.snapshot, args.archive, args.sha256)
-                    result = {'restored': str(Path(args.target).absolute()), 'database': manifest['database']}
+                    result = {'restored': str(Path(args.target).absolute()),
+                              'applications': {app: entry['database'] for app, entry in applications(manifest).items()}}
                     if args.command == 'restore-test':
-                        result.update(test_runtime(args.target, args.image, manifest))
+                        images = select_images(args.image, manifest)
+                        result['runtime'] = {app: test_runtime(args.target, image, manifest, app) for app, image in images.items()}
                         write_status(cfg, 'last_restore_test', {'at': time.time(), 'status': 'ok'})
                 else:
                     path = Path(cfg['state_dir']) / 'status.json'

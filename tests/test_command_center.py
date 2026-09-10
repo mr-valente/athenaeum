@@ -153,7 +153,7 @@ class CommandTests(unittest.TestCase):
 
     def test_cli_parses_examples_without_old_recovery_dispatch(self):
         for args in (['docker', 'pull', '--deploy'], ['repo', 'sync'], ['verify'],
-                     ['docker', 'logs', 'quacktuaries', '-f'], ['self', 'update']):
+                     ['docker', 'logs', 'quacktuaries', '-f'], ['docker', 'logs', 'bernoulli'], ['self', 'update']):
             with patch.object(sys, 'argv', ['athenaeumctl', *args]), \
                  patch.object(cli, 'load_config', return_value={}), \
                  patch.object(commands, 'dispatch', return_value=True) as dispatch:

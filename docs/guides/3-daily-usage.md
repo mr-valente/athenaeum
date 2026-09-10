@@ -8,6 +8,7 @@ Run `athenaeumctl` from any directory in your VM SSH session. It requests sudo a
 athenaeumctl status
 athenaeumctl verify
 athenaeumctl docker logs quacktuaries --tail 100 -f
+athenaeumctl docker logs bernoulli --tail 100
 ```
 
 `status` summarizes containers, disk space and backup freshness. `verify` checks HTTPS, redirects, health and metadata isolation. Ctrl-C stops log following. Use `docker ps` for container details or `docker images` for configured image references.
@@ -20,9 +21,10 @@ On your workstation, build only the project you changed:
 build athenaeum
 # Or:
 build quacktuaries
+build bernoulli
 ```
 
-Each project has its own version; Quacktuaries publishes both standalone and hosted variants. See [image builds](../development/image-builds.md) for first versions and build checks.
+Each project has its own version; the classroom apps publish both standalone and hosted variants. See [image builds](../development/image-builds.md) for first versions and build checks.
 
 After the pushes succeed, run on the VM during a break in classroom use:
 
@@ -31,7 +33,7 @@ athenaeumctl docker pull --deploy
 athenaeumctl verify
 ```
 
-This takes a verified backup, pulls images, recreates changed containers and waits for health. A failed backup or pull stops before replacement. `docker pull` alone only downloads images. Existing data and the signing key remain in place.
+This takes a verified backup, pulls images, recreates changed containers and waits for health. A failed backup or pull stops before replacement. `docker pull` alone only downloads images. Existing data and the signing keys remain in place.
 
 ## Change Compose or host tools
 
@@ -46,6 +48,19 @@ athenaeumctl verify
 `repo sync` validates and fast-forwards a clean `main` checkout. It refuses local edits, untracked files and diverged history. It does not change running containers. `docker deploy` backs up and applies Compose with already downloaded images; use `docker pull --deploy` when downloads are also needed.
 
 When `ops/` changes, run `athenaeumctl self update` after sync. It refreshes installed tools without restarting Docker. Source content and baked Caddy configuration require rebuilding the relevant image; Git sync alone does not publish them.
+
+## Add a registered app
+
+A new stateful app arrives as a Compose service, an edge route baked into a new edge image, and host-tool support. Publish the app's hosted image and the new Athenaeum images first, then during a classroom break:
+
+```bash
+athenaeumctl repo sync
+athenaeumctl self update
+athenaeumctl docker pull --deploy
+athenaeumctl verify
+```
+
+`self update` creates the app's empty data directory and persistent signing key under `/etc/athenaeum`; it never replaces an existing key. The backup taken by `docker pull --deploy` records the new app as key-only until its first start creates a database. `verify` then probes every registered prefix.
 
 Keep domain/email and image overrides in `/etc/athenaeum/compose.env`, backup settings in `/etc/athenaeum/recovery.json`, and secrets/data outside Git. To inspect checkout changes, use `athenaeumctl repo status` and, as its owner, `git -C /opt/athenaeum/stack diff`.
 

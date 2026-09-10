@@ -16,7 +16,7 @@ git clone https://github.com/mr-valente/athenaeum.git /opt/athenaeum/stack
 /opt/athenaeum/stack/ops/runbook/check-host
 ```
 
-If the stack directory already exists, inspect it and preserve local work. Keep it as a clean Git checkout. The VM does not need Quacktuaries source. Configuration and secrets live in `/etc/athenaeum`; data lives on the separate volume.
+If the stack directory already exists, inspect it and preserve local work. Keep it as a clean Git checkout. The VM does not need the Quacktuaries or Bernoulli source. Configuration and secrets live in `/etc/athenaeum`; data lives on the separate volume.
 
 **Checkpoint:** The script reports Ubuntu 26.04, `aarch64`, Python, and the block devices. Match the attached data disk to the size and attachment recorded in Oracle.
 
@@ -93,7 +93,7 @@ sudo /opt/athenaeum/stack/ops/runbook/configure-host
 
 The script discovers the mounted UUID, validates Compose and writes `/etc/athenaeum/compose.env` and `/etc/athenaeum/recovery.json` with mode 0600. Existing complete settings are validated and preserved. Edit partial/incorrect files deliberately; do not replace them with guessed values.
 
-**Recovery checkpoint:** If restoring an installation, [install the original signing key](4-backup-and-recovery.md#transfer-the-recovered-key-and-database) now. In particular, surviving app data requires its key before service installation. For a new empty installation, the installer creates a new persistent key.
+**Recovery checkpoint:** If restoring an installation, [install the original signing keys](4-backup-and-recovery.md#transfer-the-recovered-keys-and-databases) now. In particular, surviving app data requires its key before service installation. For a new empty installation, the installer creates a new persistent key for each app.
 
 ## 5. Install host services and the command center
 
@@ -104,13 +104,13 @@ sudo /opt/athenaeum/stack/ops/runbook/install-services
 sudo /opt/athenaeum/stack/ops/runbook/install-services --apply
 ```
 
-The script installs the isolated OCI SDK environment, checksum-pinned age tools, command launcher, data directories and service units. It checks Python venv support and repairs a partial environment on retry. It activates metadata protection and restarts Docker to apply the UUID guard, then checks bucket read access through the instance principal.
+The script installs the isolated OCI SDK environment, checksum-pinned age tools, command launcher, per-app data directories and signing keys, and service units. It checks Python venv support and repairs a partial environment on retry. It activates metadata protection and restarts Docker to apply the UUID guard, then checks bucket read access through the instance principal.
 
 `athenaeumctl` is now on your normal PATH and works from any directory. It requests sudo automatically through your existing administrator policy; a password prompt may appear. Host configuration and secrets remain private.
 
 **Checkpoint:** Disk and metadata guards are active, bucket read access succeeds, and apps and the backup timer are still unstarted. An empty snapshot list is normal for a new bucket. Installation failures identify the stage and a private log under `/var/lib/athenaeum/install-rollback-*`; inspect that log locally and retry the failed step.
 
-For a fresh replacement disk, [install the validated recovered database](4-backup-and-recovery.md#transfer-the-recovered-key-and-database) now. Keep existing records on a surviving volume. Do not start containers until the selected database and original key are both in place.
+For a fresh replacement disk, [install the validated recovered databases](4-backup-and-recovery.md#transfer-the-recovered-keys-and-databases) now. Keep existing records on a surviving volume. Do not start containers until each selected database and its original key are in place.
 
 ## 6. Select and download images
 
@@ -121,10 +121,11 @@ The VM uses these defaults:
 | Website | `valentemath/athenaeum:latest` |
 | Edge | `valentemath/athenaeum:latest-edge` |
 | Quacktuaries | `valentemath/quacktuaries:latest-athenaeum` |
+| Bernoulli | `valentemath/bernoulli:latest-athenaeum` |
 
-For a new system, use published images or follow [image builds](../development/image-builds.md) to publish from the workstation. Athenaeum and Quacktuaries have independent releases. Public repositories need no VM registry credentials; private ones require `sudo docker login` with pull access.
+For a new system, use published images or follow [image builds](../development/image-builds.md) to publish from the workstation. Athenaeum, Quacktuaries and Bernoulli have independent releases. Public repositories need no VM registry credentials; private ones require `sudo docker login` with pull access.
 
-For disaster recovery, set compatible retained versions/digests from the selected backup in `/etc/athenaeum/compose.env` before pulling. Its `ATHENAEUM_IMAGE`, `EDGE_IMAGE` and `QUACKTUARIES_IMAGE` overrides take precedence over Compose defaults. Keep the matching image releases available independently of the old VM.
+For disaster recovery, set compatible retained versions/digests from the selected backup in `/etc/athenaeum/compose.env` before pulling. Its `ATHENAEUM_IMAGE`, `EDGE_IMAGE`, `QUACKTUARIES_IMAGE` and `BERNOULLI_IMAGE` overrides take precedence over Compose defaults. Keep the matching image releases available independently of the old VM.
 
 **VM:**
 
@@ -133,7 +134,7 @@ athenaeumctl docker images
 athenaeumctl docker pull
 ```
 
-**Checkpoint:** All three expected ARM64 images download successfully. No containers have been started.
+**Checkpoint:** All four expected ARM64 images download successfully. No containers have been started.
 
 ## 7. Configure DNS
 
@@ -169,7 +170,7 @@ athenaeumctl verify
 
 `verify` checks container health, site/app HTTPS, `www` and app-prefix redirects, and denied container metadata access. If it fails, inspect `athenaeumctl docker logs --tail 100` and the relevant DNS/firewall/configuration checkpoint. Preserve records and keys while correcting problems.
 
-**Browser checkpoint:** Open the site, follow Projects → Quacktuaries, create a synthetic teacher/game, join as a synthetic student in another profile, start, perform an action, end the game and export its CSV. Leave the test game ended. After recovery, also verify expected restored records and ownership.
+**Browser checkpoint:** Open the site, follow Projects → Quacktuaries, create a synthetic teacher/game, join as a synthetic student in another profile, start, perform an action, end the game and export its CSV. Then follow Projects → Bernoulli, create a Flip Flop session, join as a student, flip a coin, vote, lock, reveal, end the session and export its CSV. Leave both test sessions ended. After recovery, also verify expected restored records and ownership.
 
 ## 9. Prove backups and reboot behavior
 
@@ -191,4 +192,4 @@ athenaeumctl verify
 athenaeumctl status
 ```
 
-**Final checkpoint:** The correct data volume is mounted after reboot; the site and app are healthy over HTTPS; container metadata access is denied; backups are current and scheduled; and a verified recovery copy and independent identity are available outside Oracle. Continue with [Guide 3 — Daily usage](3-daily-usage.md).
+**Final checkpoint:** The correct data volume is mounted after reboot; the site and both apps are healthy over HTTPS; container metadata access is denied; backups are current and scheduled; and a verified recovery copy and independent identity are available outside Oracle. Continue with [Guide 3 — Daily usage](3-daily-usage.md).

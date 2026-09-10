@@ -184,9 +184,10 @@ class RunbookTests(unittest.TestCase):
                     key_paths.append(Path(key))
                     self.assertEqual(Path(key).read_text(), identity.read_text())
                     if fail_restore: raise Failure('bad recovery')
-                    return {'fixture': 'manifest'}
-                def runtime(target, image, manifest):
-                    events.append(('runtime', image))
+                    return {'schema': 2, 'applications': {'quacktuaries': {'hook': 'sqlite-v1', 'database': {'rows': 1}},
+                                                          'bernoulli': {'hook': 'sqlite-v1', 'database': None}}}
+                def runtime(target, image, manifest, app):
+                    events.append(('runtime', app, image))
                 def export(cfg, snapshot, path):
                     events.append(('export', snapshot))
                     Path(path).write_bytes(b'ciphertext')
@@ -194,7 +195,8 @@ class RunbookTests(unittest.TestCase):
                 with patch.dict(main.__globals__, {
                         'installed_config': lambda: {}, 'recovery_python': lambda: None,
                         'operation_lock': lambda c: nullcontext(),
-                        'deployment': lambda c: {'quacktuaries': {'id': 'sha256:exact-current-image'}},
+                        'deployment': lambda c: {'quacktuaries': {'id': 'sha256:exact-current-image'},
+                                                 'bernoulli': {'id': 'sha256:other-image'}},
                         'recorded_backup': lambda c: {'snapshot': 'explicit-snapshot'},
                         'restore': restore, 'test_runtime': runtime, 'export_snapshot': export,
                         'write_status': lambda c, k, v: events.append(('status', v['status'])),
@@ -210,8 +212,10 @@ class RunbookTests(unittest.TestCase):
                 self.assertTrue(identity.exists())
                 self.assertTrue(key_paths)
                 self.assertTrue(all(not key.exists() for key in key_paths))
+                # Bernoulli has no database yet, so only Quacktuaries runs against its exact image.
                 self.assertEqual(events, [('status', 'running'), ('restore', 'explicit-snapshot')] if fail_restore else [
-                    ('status', 'running'), ('restore', 'explicit-snapshot'), ('runtime', 'sha256:exact-current-image'),
+                    ('status', 'running'), ('restore', 'explicit-snapshot'),
+                    ('runtime', 'quacktuaries', 'sha256:exact-current-image'),
                     ('export', 'explicit-snapshot'), ('status', 'ok')])
 
     def test_download_mismatch_does_not_publish_or_overwrite(self):

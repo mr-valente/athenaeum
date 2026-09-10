@@ -36,7 +36,7 @@ Names are lowercased; spaces and underscores become hyphens. Use ASCII letters, 
 
 Missing parent indexes are generated from published descendants. An empty directory builds a minimal home page. Each section lists its immediate children; the header lists top-level pages. Listings sort by ascending `order`, then title, then URL. Generated indexes use order `0`; add an `index.md` to customize one.
 
-`/quacktuaries/` is reserved for the application. Register future application slugs in `deploy/reserved-paths.json`; this reserves their entire first URL segment. System routes such as `/404/`, `/_health`, `/_content/`, and `/_astro/` cannot be content routes.
+`/quacktuaries/` and `/bernoulli/` are reserved for the applications. Register future application slugs in `deploy/reserved-paths.json`; this reserves their entire first URL segment. System routes such as `/404/`, `/_health`, `/_content/`, and `/_astro/` cannot be content routes.
 
 ## Frontmatter
 
@@ -75,7 +75,7 @@ order: 20
 Explain what visitors can do here.
 ```
 
-The project page appears at `/projects/my-app/` with an “Open My app” link. After an app is integrated and its slug registered, its destination can be `/my-app/`. The Quacktuaries listing targets `/quacktuaries/`.
+The project page appears at `/projects/my-app/` with an “Open My app” link. After an app is integrated and its slug registered, its destination can be `/my-app/`. The Quacktuaries and Bernoulli listings target `/quacktuaries/` and `/bernoulli/`.
 
 ## Links and downloads
 

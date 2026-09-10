@@ -10,29 +10,39 @@ import sys
 ROOT = Path(__file__).resolve().parent.parent
 STATE = ROOT / '.state' / 'local'
 ENV = STATE / 'compose.env'
+# Stateful apps and their local signing-key files. Quacktuaries keeps the
+# original unsuffixed name so existing local sessions stay valid.
+APPS = {'quacktuaries': 'session-secret', 'bernoulli': 'bernoulli-session-secret'}
+PRIVATE = {'DATA_ROOT', 'RUNTIME_UID', 'RUNTIME_GID', 'SITE_DOMAIN', 'ACME_EMAIL', 'EDGE_IMAGE',
+           'ATHENAEUM_IMAGE', 'LOCAL_HTTP_PORT', 'LOCAL_HTTPS_PORT',
+           *(f'{app.upper()}_{suffix}' for app in APPS for suffix in ('SECRET_FILE', 'IMAGE'))}
 
 
 def initialize():
     STATE.mkdir(mode=0o700, parents=True, exist_ok=True)
-    for relative in ('edge/data', 'edge/config', 'apps/quacktuaries/data'):
+    for relative in ('edge/data', 'edge/config', *(f'apps/{app}/data' for app in APPS)):
         (STATE / relative).mkdir(mode=0o700, parents=True, exist_ok=True)
-    secret = STATE / 'session-secret'
-    if not secret.exists():
-        if any((STATE / 'apps/quacktuaries/data').iterdir()):
-            sys.exit('Existing local data has no signing key. Restore session-secret; refusing to invalidate saved sessions.')
-        with open(secret, 'x', opener=lambda path, flags: os.open(path, flags, 0o600)) as file:
-            file.write(secrets.token_hex(32) + '\n')
-    if not ENV.exists():
-        values = {
-            'DATA_ROOT': str(STATE), 'QUACKTUARIES_SECRET_FILE': str(secret),
-            'RUNTIME_UID': str(os.getuid()), 'RUNTIME_GID': str(os.getgid()),
-            'SITE_DOMAIN': 'localhost', 'ACME_EMAIL': 'local@example.invalid',
-            'EDGE_IMAGE': 'athenaeum-edge:local', 'ATHENAEUM_IMAGE': 'athenaeum:local',
-            'QUACKTUARIES_IMAGE': 'quacktuaries:athenaeum-local',
-            'LOCAL_HTTP_PORT': '8080', 'LOCAL_HTTPS_PORT': '8443',
-        }
-        with open(ENV, 'x', opener=lambda path, flags: os.open(path, flags, 0o600)) as file:
-            for key, value in values.items():
+    values = {
+        'DATA_ROOT': str(STATE),
+        'RUNTIME_UID': str(os.getuid()), 'RUNTIME_GID': str(os.getgid()),
+        'SITE_DOMAIN': 'localhost', 'ACME_EMAIL': 'local@example.invalid',
+        'EDGE_IMAGE': 'athenaeum-edge:local', 'ATHENAEUM_IMAGE': 'athenaeum:local',
+        'LOCAL_HTTP_PORT': '8080', 'LOCAL_HTTPS_PORT': '8443',
+    }
+    for app, name in APPS.items():
+        secret = STATE / name
+        if not secret.exists():
+            if any((STATE / 'apps' / app / 'data').iterdir()):
+                sys.exit(f'Existing local {app} data has no signing key. Restore {name}; refusing to invalidate saved sessions.')
+            with open(secret, 'x', opener=lambda path, flags: os.open(path, flags, 0o600)) as file:
+                file.write(secrets.token_hex(32) + '\n')
+        values[f'{app.upper()}_SECRET_FILE'] = str(secret)
+        values[f'{app.upper()}_IMAGE'] = f'{app}:athenaeum-local'
+    # Keep saved settings such as ports; only add keys a newer stack introduced.
+    present = {line.split('=', 1)[0] for line in ENV.read_text().splitlines() if '=' in line} if ENV.exists() else set()
+    with open(ENV, 'a', opener=lambda path, flags: os.open(path, flags, 0o600)) as file:
+        for key, value in values.items():
+            if key not in present:
                 # Compose interpolation, not shell code. Escape literal dollar signs.
                 file.write(key + '=' + json.dumps(value.replace('$', '$$')) + '\n')
     print(f'Local configuration ready: {ENV}')
@@ -48,10 +58,7 @@ if __name__ == '__main__':
         if not ENV.is_file():
             sys.exit('Run ops/local-stack init first.')
         # Shell variables must not accidentally select the production data/image paths.
-        env = {key: value for key, value in os.environ.items() if key not in {
-            'DATA_ROOT', 'QUACKTUARIES_SECRET_FILE', 'RUNTIME_UID', 'RUNTIME_GID',
-            'SITE_DOMAIN', 'ACME_EMAIL', 'EDGE_IMAGE', 'ATHENAEUM_IMAGE', 'QUACKTUARIES_IMAGE',
-            'LOCAL_HTTP_PORT', 'LOCAL_HTTPS_PORT',
+        env = {key: value for key, value in os.environ.items() if key not in PRIVATE | {
             'COMPOSE_FILE', 'COMPOSE_PROJECT_NAME', 'COMPOSE_PROFILES', 'COMPOSE_ENV_FILES',
         }}
         command = ['docker', 'compose', '--project-name', 'athenaeum-local', '--env-file', str(ENV),

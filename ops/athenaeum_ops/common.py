@@ -63,6 +63,27 @@ def atomic_json(path, data):
         Path(temp).unlink(missing_ok=True)
 
 
+# Registered stateful applications. Each owns one SQLite database at
+# apps/<name>/data/app.db and one persistent signing key named by the config
+# key below. Its Compose service, secret (<name>_session), image override
+# (<NAME>_IMAGE) and public prefix all derive from the name.
+APPS = {
+    'quacktuaries': {'secret': 'session_secret', 'root_path': '/quacktuaries',
+                     'tables': {'teachers', 'sessions', 'players', 'device_stats', 'events'}},
+    'bernoulli': {'secret': 'bernoulli_session_secret', 'root_path': '/bernoulli',
+                  'tables': {'teachers', 'sessions', 'players', 'flip_flop_rounds', 'flip_flop_votes'}},
+}
+SERVICES = ('edge', 'athenaeum', *APPS)
+
+
+def secret_path(cfg, app):
+    return Path(cfg[APPS[app]['secret']])
+
+
+def data_dir(cfg, app):
+    return Path(cfg['data_root']) / 'apps' / app / 'data'
+
+
 # Ordinary host setup only supplies the disk UUID, public backup key and bucket.
 DEFAULTS = {
     'schema': 1, 'mode': 'production', 'data_root': '/srv/athenaeum',
@@ -70,6 +91,7 @@ DEFAULTS = {
     'compose_files': ['/opt/athenaeum/stack/compose.yaml'],
     'compose_env': '/etc/athenaeum/compose.env',
     'session_secret': '/etc/athenaeum/quacktuaries-session-secret',
+    'bernoulli_session_secret': '/etc/athenaeum/bernoulli-session-secret',
     'age_binary': '/opt/athenaeum/tools/age', 'bucket_cap_bytes': 8_000_000_000,
     'max_snapshot_bytes': 1_000_000_000, 'max_restore_bytes': 4_000_000_000,
     'min_free_bytes': 2_000_000_000, 'stale_after_seconds': 7200,
@@ -81,13 +103,14 @@ def load_config(path):
     try:
         cfg = DEFAULTS | json.loads(source.read_text())
         cfg['store'] = {'kind': 'oci', 'prefix': 'athenaeum/v1/'} | cfg['store']
+        secrets = {app['secret'] for app in APPS.values()}
         expected = {'schema', 'mode', 'data_root', 'filesystem_uuid', 'state_dir', 'compose_project',
-                    'compose_files', 'compose_env', 'session_secret', 'recipient', 'age_binary',
+                    'compose_files', 'compose_env', 'recipient', 'age_binary',
                     'bucket_cap_bytes', 'max_snapshot_bytes', 'max_restore_bytes', 'min_free_bytes',
-                    'stale_after_seconds', 'store'}
+                    'stale_after_seconds', 'store'} | secrets
         if set(cfg) != expected or cfg['schema'] != 1 or cfg['mode'] not in ('production', 'local'):
             raise ValueError()
-        for key in ('data_root', 'state_dir', 'compose_env', 'session_secret', 'age_binary'):
+        for key in ('data_root', 'state_dir', 'compose_env', 'age_binary', *sorted(secrets)):
             if (not isinstance(cfg[key], str) or not Path(cfg[key]).is_absolute()
                     or '..' in Path(cfg[key]).parts or any(c in cfg[key] for c in '\n\r\x00')):
                 raise ValueError()
@@ -122,6 +145,8 @@ def load_config(path):
             raise ValueError()
         if Path(cfg['data_root']) == Path('/') or Path(cfg['state_dir']).is_relative_to(cfg['data_root']):
             raise ValueError()
+        if len({cfg[key] for key in secrets}) != len(secrets):
+            raise ValueError()
     except (ValueError, TypeError, KeyError):
         raise Failure('Invalid recovery configuration; use deploy/recovery.example.json and replace every placeholder') from None
     cfg['_source'] = str(source)
@@ -149,13 +174,14 @@ def guard_mount(cfg):
 def preflight(cfg):
     result = guard_mount(cfg)
     root = Path(cfg['data_root'])
-    for relative in ('apps/quacktuaries/data', 'edge/data', 'edge/config', 'backups/staging'):
-        child = directory(root / relative)
+    for child in [*(data_dir(cfg, app) for app in APPS), *(root / r for r in ('edge/data', 'edge/config', 'backups/staging'))]:
+        directory(child)
         if child.stat().st_dev != root.stat().st_dev:
             raise Failure(f'Unexpected nested filesystem: {child}')
-    regular(cfg['session_secret'], private=True)
-    if len(Path(cfg['session_secret']).read_text().strip()) < 32:
-        raise Failure('Session signing key is missing or too short')
+    for app in APPS:
+        regular(secret_path(cfg, app), private=True)
+        if len(secret_path(cfg, app).read_text().strip()) < 32:
+            raise Failure(f'Session signing key for {app} is missing or too short')
     regular(cfg['compose_env'], private=True)
     for path in cfg['compose_files']:
         regular(path)
@@ -192,8 +218,9 @@ def compose_invocation(cfg, *args):
     for file in compose_files(cfg):
         command += ['-f', file]
     # Explicit config is authoritative, not inherited interactive shell variables.
-    env = {k: v for k, v in os.environ.items() if k not in {
-        'DATA_ROOT', 'QUACKTUARIES_SECRET_FILE', 'EDGE_IMAGE', 'ATHENAEUM_IMAGE', 'QUACKTUARIES_IMAGE',
+    private = {f'{app.upper()}_{suffix}' for app in APPS for suffix in ('SECRET_FILE', 'IMAGE')}
+    env = {k: v for k, v in os.environ.items() if k not in private | {
+        'DATA_ROOT', 'EDGE_IMAGE', 'ATHENAEUM_IMAGE',
         'RUNTIME_UID', 'RUNTIME_GID', 'SITE_DOMAIN', 'ACME_EMAIL',
         'LOCAL_HTTP_PORT', 'LOCAL_HTTPS_PORT', 'COMPOSE_FILE', 'COMPOSE_PROJECT_NAME',
         'COMPOSE_PROFILES', 'COMPOSE_ENV_FILES'}}
@@ -217,25 +244,31 @@ def compose_visible(cfg, *args):
 def validate_compose(cfg):
     model = json.loads(compose(cfg, 'config', '--format', 'json'))
     root = Path(cfg['data_root'])
-    for service, mounts in {'edge': {'/data': root / 'edge/data', '/config': root / 'edge/config'},
-                            'quacktuaries': {'/data': root / 'apps/quacktuaries/data'}}.items():
+    expected = {'edge': {'/data': root / 'edge/data', '/config': root / 'edge/config'}}
+    expected.update({app: {'/data': data_dir(cfg, app)} for app in APPS})
+    for service, mounts in expected.items():
         actual = {v['target']: v for v in model['services'][service]['volumes']}
         for dest, source in mounts.items():
             mount = actual[dest]
             if mount.get('type') != 'bind' or mount['source'] != str(source) or mount.get('bind', {}).get('create_host_path', True):
                 raise Failure('Compose data mounts do not match recovery configuration')
-    if model['secrets']['quacktuaries_session']['file'] != cfg['session_secret']:
-        raise Failure('Compose signing key does not match recovery configuration')
+    for app in APPS:
+        if model['secrets'][app + '_session']['file'] != str(secret_path(cfg, app)):
+            raise Failure(f'Compose signing key for {app} does not match recovery configuration')
     return model
 
 
 def deployment(cfg):
     validate_compose(cfg)
     images = {}
-    for service in ('edge', 'athenaeum', 'quacktuaries'):
+    for service in SERVICES:
         ids = compose(cfg, 'ps', '--all', '--quiet', service).decode().split()
-        if len(ids) != 1:
-            raise Failure(f'Expected exactly one existing {service} container for snapshot metadata')
+        if len(ids) > 1:
+            raise Failure(f'Expected at most one existing {service} container for snapshot metadata')
+        if not ids:
+            # A newly registered service has no container until its first
+            # deployment; the backup before that deployment records nothing for it.
+            continue
         container = json.loads(run(['docker', 'inspect', ids[0]]))[0]
         image = json.loads(run(['docker', 'image', 'inspect', container['Image']]))[0]
         images[service] = {'id': image['Id'], 'reference': container['Config']['Image'],

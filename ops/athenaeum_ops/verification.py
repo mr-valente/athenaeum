@@ -2,8 +2,8 @@
 import urllib.request
 from urllib.error import HTTPError
 from urllib.parse import urljoin
-from .common import preflight, validate_compose, compose, run, Failure
-from .cli import stack_status, SERVICES
+from .common import APPS, SERVICES, preflight, validate_compose, compose, run, Failure
+from .cli import stack_status
 
 
 def say(message):
@@ -34,14 +34,16 @@ def verify(cfg):
     status = stack_status(cfg)
     if {c['Service'] for c in status['containers']} != set(SERVICES) or any(
             c.get('State') != 'running' or c.get('Health') != 'healthy' for c in status['containers']):
-        raise Failure('Expected three running healthy containers; run stack update or inspect logs.')
+        raise Failure(f'Expected {len(SERVICES)} running healthy containers; run stack update or inspect logs.')
     domain = model['services']['edge']['environment']['SITE_DOMAIN']
     origin = 'https://' + domain
     opener = urllib.request.build_opener(NoRedirect)
     probe(opener, origin + '/', 200)
-    probe(opener, origin + '/quacktuaries/', 200)
     probe(opener, 'https://www.' + domain + '/', 308, origin + '/')
-    probe(opener, origin + '/quacktuaries?source=setup', 308, origin + '/quacktuaries/?source=setup')
+    for app in APPS.values():
+        prefix = origin + app['root_path']
+        probe(opener, prefix + '/', 200)
+        probe(opener, prefix + '?source=setup', 308, prefix + '/?source=setup')
     # First prove wget itself works in the right container. A missing command or
     # container must never be mistaken for successful metadata isolation.
     edge = compose(cfg, 'ps', '--quiet', 'edge').decode().strip()

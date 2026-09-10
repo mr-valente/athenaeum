@@ -5,7 +5,8 @@
 ```text
 Caddy (HTTPS)
   ├─ /                → Athenaeum static website
-  └─ /quacktuaries/   → Quacktuaries classroom app
+  ├─ /quacktuaries/   → Quacktuaries classroom app
+  └─ /bernoulli/      → Bernoulli coin-flip experiments
 
 Block volume → persistent data
 Oracle bucket → encrypted backups
@@ -29,9 +30,10 @@ On the workstation, build the project you changed:
 build athenaeum
 # Or:
 build quacktuaries
+build bernoulli
 ```
 
-Each project has its own image repository and version counter. Athenaeum publishes its site and edge; Quacktuaries publishes standalone and Athenaeum variants together. See [image builds](docs/development/image-builds.md).
+Each project has its own image repository and version counter. Athenaeum publishes its site and edge; each classroom app publishes standalone and Athenaeum variants together. See [image builds](docs/development/image-builds.md).
 
 On the VM, from any directory:
 

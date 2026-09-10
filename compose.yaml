@@ -65,6 +65,29 @@ services:
       - /tmp:size=16777216,mode=1777,noexec,nosuid,nodev
     networks: [apps]
 
+  bernoulli:
+    <<: *runtime
+    image: ${BERNOULLI_IMAGE:-valentemath/bernoulli:latest-athenaeum}
+    user: ${RUNTIME_UID:-10001}:${RUNTIME_GID:-10001}
+    mem_limit: 1g
+    environment:
+      APP_ENV: production
+      ROOT_PATH: /bernoulli
+      PORT: '8000'
+      DB_PATH: /data/app.db
+      SESSION_SECRET_FILE: /run/secrets/bernoulli_session
+      # Only our trusted containers can reach this unpublished app port.
+      FORWARDED_ALLOW_IPS: '*'
+    secrets: [bernoulli_session]
+    volumes:
+      - type: bind
+        source: ${DATA_ROOT:-/srv/athenaeum}/apps/bernoulli/data
+        target: /data
+        bind: {create_host_path: false}
+    tmpfs:
+      - /tmp:size=16777216,mode=1777,noexec,nosuid,nodev
+    networks: [apps]
+
 networks:
   apps:
     internal: true
@@ -72,3 +95,5 @@ networks:
 secrets:
   quacktuaries_session:
     file: ${QUACKTUARIES_SECRET_FILE:-/etc/athenaeum/quacktuaries-session-secret}
+  bernoulli_session:
+    file: ${BERNOULLI_SECRET_FILE:-/etc/athenaeum/bernoulli-session-secret}

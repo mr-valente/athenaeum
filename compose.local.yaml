@@ -17,3 +17,6 @@ services:
   quacktuaries:
     build: ../quacktuaries
     pull_policy: never
+  bernoulli:
+    build: ../bernoulli
+    pull_policy: never

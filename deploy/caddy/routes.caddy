@@ -18,6 +18,21 @@ handle_path /quacktuaries/* {
 		header_up -X-Forwarded-Prefix
 	}
 }
+@bernoulli_root path /bernoulli
+handle @bernoulli_root {
+	route {
+		uri replace /bernoulli /bernoulli/ 1
+		redir {uri} 308
+	}
+}
+handle_path /bernoulli/* {
+	@bernoulli_health path /_health
+	respond @bernoulli_health 404
+	reverse_proxy bernoulli:8000 {
+		header_up -Forwarded
+		header_up -X-Forwarded-Prefix
+	}
+}
 handle {
 	reverse_proxy athenaeum:8080
 }

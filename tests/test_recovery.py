@@ -15,9 +15,10 @@ import unittest
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'ops'))
-from athenaeum_ops.common import Failure, atomic_json, digest, guard_mount, load_config, operation_lock, preflight, run
-from athenaeum_ops.archive import inspect_database, snapshot_database, unpack_verified
+from athenaeum_ops.common import APPS, Failure, atomic_json, digest, guard_mount, load_config, operation_lock, preflight, run
+from athenaeum_ops.archive import applications, inspect_database, snapshot_database, unpack_verified
 from athenaeum_ops.recovery import backup, export_snapshot, restore, retention_keep, cleanup_staging
+from athenaeum_ops.runtime import select_images
 from athenaeum_ops.storage import LocalStore, OCIStore
 
 AGE = os.environ.get('ATHENAEUM_TEST_AGE') or shutil.which('age') or ''
@@ -29,22 +30,21 @@ class Fixture(unittest.TestCase):
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
         self.data = self.root / 'live'
-        for relative in ('apps/quacktuaries/data', 'edge/data', 'edge/config', 'backups/staging'):
+        for relative in ('edge/data', 'edge/config', 'backups/staging', *(f'apps/{app}/data' for app in APPS)):
             (self.data / relative).mkdir(parents=True, mode=0o700)
         self.database = self.data / 'apps/quacktuaries/data/app.db'
-        with contextlib.closing(sqlite3.connect(self.database)) as db, db:
-            for table in ('teachers', 'sessions', 'players', 'device_stats', 'events'):
-                db.execute(f'CREATE TABLE {table} (id INTEGER PRIMARY KEY, value TEXT)')
-            db.execute("INSERT INTO teachers(value) VALUES ('synthetic teacher')")
+        for app in APPS:
+            self.create_database(app)
         for name in ('state', 'objects'):
             (self.root / name).mkdir(mode=0o700)
-        for name in ('secret', 'compose.env', 'compose.yaml'):
+        for name in ('secret', 'bernoulli-secret', 'compose.env', 'compose.yaml'):
             (self.root / name).write_text('fixture-' * 8)
             (self.root / name).chmod(0o600)
         self.cfg = {'schema': 1, 'mode': 'local', 'filesystem_uuid': '', 'data_root': str(self.data),
                     'state_dir': str(self.root / 'state'), 'compose_project': 'fixture',
                     'compose_files': [str(self.root / 'compose.yaml')], 'compose_env': str(self.root / 'compose.env'),
-                    'session_secret': str(self.root / 'secret'), 'recipient': 'age1' + 'a' * 58,
+                    'session_secret': str(self.root / 'secret'), 'bernoulli_session_secret': str(self.root / 'bernoulli-secret'),
+                    'recipient': 'age1' + 'a' * 58,
                     'age_binary': AGE, 'bucket_cap_bytes': 10_000_000, 'max_snapshot_bytes': 2_000_000,
                     'max_restore_bytes': 5_000_000, 'min_free_bytes': 1000, 'stale_after_seconds': 7200,
                     'store': {'kind': 'local', 'directory': str(self.root / 'objects'), 'prefix': 'athenaeum/v1/'}}
@@ -52,7 +52,13 @@ class Fixture(unittest.TestCase):
         atomic_json(self.config, self.cfg)
         self.cfg = load_config(self.config)
         self.store = LocalStore(self.cfg['store'])
-        self.images = {'quacktuaries': {'id': 'sha256:' + 'a' * 64, 'digests': [], 'architecture': 'amd64'}}
+        self.images = {app: {'id': 'sha256:' + 'a' * 64, 'digests': [], 'architecture': 'amd64'} for app in APPS}
+
+    def create_database(self, app):
+        with contextlib.closing(sqlite3.connect(self.data / 'apps' / app / 'data/app.db')) as db, db:
+            for table in sorted(APPS[app]['tables']):
+                db.execute(f'CREATE TABLE {table} (id INTEGER PRIMARY KEY, value TEXT)')
+            db.execute("INSERT INTO teachers(value) VALUES ('synthetic teacher')")
 
 
 class Guards(Fixture):
@@ -88,19 +94,41 @@ class Guards(Fixture):
                     self.fail('second lock must fail')
 
     def test_missing_secret_symlink_and_low_disk_fail(self):
-        secret = self.root / 'secret'
-        secret.unlink()
-        with self.assertRaises(Failure):
-            preflight(self.cfg)
-        secret.symlink_to(self.root / 'compose.env')
-        with self.assertRaises(Failure):
-            preflight(self.cfg)
-        secret.unlink()
-        secret.write_text('x' * 64)
-        secret.chmod(0o600)
+        for name in ('secret', 'bernoulli-secret'):
+            secret = self.root / name
+            secret.unlink()
+            with self.assertRaises(Failure):
+                preflight(self.cfg)
+            secret.symlink_to(self.root / 'compose.env')
+            with self.assertRaises(Failure):
+                preflight(self.cfg)
+            secret.unlink()
+            secret.write_text('x' * 64)
+            secret.chmod(0o600)
         with patch('athenaeum_ops.common.shutil.disk_usage', return_value=type('Usage', (), {'free': 1})()):
             with self.assertRaisesRegex(Failure, 'free space'):
                 preflight(self.cfg)
+
+    def test_every_registered_app_needs_its_own_data_directory_and_key(self):
+        shutil.rmtree(self.data / 'apps/bernoulli')
+        with self.assertRaises(Failure):
+            preflight(self.cfg)
+        shared = dict(self.cfg, bernoulli_session_secret=self.cfg['session_secret'])
+        atomic_json(self.config, {k: v for k, v in shared.items() if not k.startswith('_')})
+        with self.assertRaisesRegex(Failure, 'Invalid recovery configuration'):
+            load_config(self.config)
+
+    def test_image_selection_covers_exactly_the_restored_databases(self):
+        both = {'schema': 2, 'applications': {app: {'hook': 'sqlite-v1', 'database': {}} for app in APPS}}
+        one = {'schema': 1, 'application': 'quacktuaries', 'hook': 'sqlite-v1', 'database': {}}
+        self.assertEqual(select_images(['sha256:a'], one), {'quacktuaries': 'sha256:a'})
+        self.assertEqual(select_images(['bernoulli=sha256:b', 'quacktuaries=sha256:a'], both),
+                         {'quacktuaries': 'sha256:a', 'bernoulli': 'sha256:b'})
+        for values, manifest in ((['sha256:a'], both), (['quacktuaries=sha256:a'], both),
+                                 (['quacktuaries=sha256:a', 'quacktuaries=sha256:b'], both),
+                                 (['bernoulli=sha256:b'], one), (['other=sha256:c', 'quacktuaries=sha256:a'], one)):
+            with self.subTest(values=values), self.assertRaises(Failure):
+                select_images(values, manifest)
 
     def test_online_backup_with_live_wal_writer_is_consistent(self):
         with contextlib.closing(sqlite3.connect(self.database)) as db, db:
@@ -115,12 +143,12 @@ class Guards(Fixture):
         thread = threading.Thread(target=write)
         thread.start()
         try:
-            meta = snapshot_database(self.database, self.root / 'copy.db')
+            meta = snapshot_database(self.database, self.root / 'copy.db', APPS['quacktuaries']['tables'])
             self.assertEqual(meta['row_counts']['events'] % 2, 0)
         finally:
             stopped.set()
             thread.join()
-        self.assertEqual(meta, inspect_database(self.root / 'copy.db'))
+        self.assertEqual(meta, inspect_database(self.root / 'copy.db', APPS['quacktuaries']['tables']))
 
     def test_retention_keeps_latest_per_hour_day_and_newest(self):
         now = datetime.now(timezone.utc)
@@ -168,8 +196,12 @@ class EncryptedRecovery(Fixture):
         self.assertEqual(list((self.data / 'backups/staging').iterdir()), [])
         target = self.root / 'restored'
         manifest = restore(self.cfg, target, self.identity, result['snapshot'], store=self.store)
-        self.assertEqual(manifest['database']['row_counts']['teachers'], 1)
+        self.assertEqual(manifest['schema'], 2)
+        for app in APPS:
+            self.assertEqual(manifest['applications'][app]['database']['row_counts']['teachers'], 1)
+            self.assertTrue((target / 'apps' / app / 'app.db').is_file())
         self.assertEqual((target / 'secrets/quacktuaries-session-secret').read_bytes(), (self.root / 'secret').read_bytes())
+        self.assertEqual((target / 'secrets/bernoulli-session-secret').read_bytes(), (self.root / 'bernoulli-secret').read_bytes())
         with self.assertRaises(Failure):
             restore(self.cfg, target, self.identity, result['snapshot'], store=self.store)
         with self.assertRaises(Failure):
@@ -177,7 +209,49 @@ class EncryptedRecovery(Fixture):
         exported = self.root / 'external.age'
         info = export_snapshot(self.cfg, result['snapshot'], exported, self.store)
         offline = restore(self.cfg, self.root / 'offline', self.identity, archive=exported, expected_sha256=info['ciphertext_sha256'])
-        self.assertEqual(offline['database'], manifest['database'])
+        self.assertEqual(offline['applications'], manifest['applications'])
+
+    def test_new_app_without_database_is_archived_as_key_only(self):
+        (self.data / 'apps/bernoulli/data/app.db').unlink()
+        result = backup(self.cfg, self.store, {'quacktuaries': self.images['quacktuaries']})
+        target = self.root / 'restored'
+        manifest = restore(self.cfg, target, self.identity, result['snapshot'], store=self.store)
+        self.assertIsNone(manifest['applications']['bernoulli']['database'])
+        self.assertIsNotNone(manifest['applications']['quacktuaries']['database'])
+        self.assertFalse((target / 'apps/bernoulli').exists())
+        self.assertTrue((target / 'secrets/bernoulli-session-secret').is_file())
+        self.assertEqual(select_images(['sha256:a'], manifest), {'quacktuaries': 'sha256:a'})
+        (self.data / 'apps/bernoulli/data/app.db-wal').write_bytes(b'orphan journal')
+        with self.assertRaisesRegex(Failure, 'Journal files'):
+            backup(self.cfg, self.store, self.images)
+
+    def test_legacy_single_application_snapshot_still_restores(self):
+        # A schema-1 archive from before Bernoulli's registration.
+        payload = self.root / 'legacy'
+        (payload / 'apps/quacktuaries').mkdir(parents=True)
+        (payload / 'secrets').mkdir()
+        (payload / 'config').mkdir()
+        shutil.copyfile(self.database, payload / 'apps/quacktuaries/app.db')
+        shutil.copyfile(self.root / 'secret', payload / 'secrets/quacktuaries-session-secret')
+        for name in ('compose.env', 'recovery.json', 'compose-0.yaml'):
+            (payload / 'config' / name).write_text('legacy')
+        manifest = {'schema': 1, 'created_at': '2026-01-01T00:00:00+00:00', 'application': 'quacktuaries',
+                    'hook': 'sqlite-v1', 'database': inspect_database(self.database, APPS['quacktuaries']['tables']),
+                    'images': {'quacktuaries': self.images['quacktuaries']}, 'tls_recovery': 'reissue', 'files': {}}
+        for file in sorted(payload.rglob('*')):
+            if file.is_file():
+                manifest['files'][file.relative_to(payload).as_posix()] = {'bytes': file.stat().st_size, 'sha256': digest(file)}
+        (payload / 'manifest.json').write_text(json.dumps(manifest, sort_keys=True))
+        tarpath = self.root / 'legacy.tar.gz'
+        with tarfile.open(tarpath, 'w:gz') as tar:
+            for file in sorted(payload.rglob('*')):
+                if file.is_file():
+                    tar.add(file, arcname=file.relative_to(payload).as_posix())
+        encrypted = self.root / 'legacy.age'
+        run([AGE, '-r', self.cfg['recipient'], '-o', encrypted, tarpath])
+        restored = restore(self.cfg, self.root / 'from-legacy', self.identity, archive=encrypted, expected_sha256=digest(encrypted))
+        self.assertEqual(applications(restored), {'quacktuaries': {'hook': 'sqlite-v1', 'database': manifest['database']}})
+        self.assertEqual(select_images(['sha256:a'], restored), {'quacktuaries': 'sha256:a'})
 
     def test_full_bucket_preserves_previous_points_and_cleans_plaintext(self):
         previous = backup(self.cfg, self.store, self.images)
@@ -263,6 +337,10 @@ class EncryptedRecovery(Fixture):
     def test_unregistered_files_refused(self):
         (self.database.parent / 'upload.txt').write_text('not registered')
         with self.assertRaisesRegex(Failure, 'Undeclared'):
+            backup(self.cfg, self.store, self.images)
+        (self.database.parent / 'upload.txt').unlink()
+        (self.data / 'apps/future-app').mkdir()
+        with self.assertRaisesRegex(Failure, 'Unregistered'):
             backup(self.cfg, self.store, self.images)
         self.assertEqual(self.store.inventory()[0], [])
 

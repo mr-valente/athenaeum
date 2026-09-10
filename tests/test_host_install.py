@@ -33,7 +33,8 @@ class HostSetupTests(unittest.TestCase):
         globals_ = install.__globals__
         cfg = {'mode': 'production', 'data_root': '/srv/athenaeum', 'state_dir': '/var/lib/athenaeum',
                'age_binary': '/opt/athenaeum/tools/age', 'filesystem_uuid': '1234-abcd',
-               'session_secret': '/etc/athenaeum/key', 'compose_env': '/etc/athenaeum/compose.env',
+               'session_secret': '/etc/athenaeum/key', 'bernoulli_session_secret': '/etc/athenaeum/bernoulli-key',
+               'compose_env': '/etc/athenaeum/compose.env',
                'compose_files': ['/opt/athenaeum/stack/compose.yaml']}
         with patch.dict(globals_, {'load_config': lambda p: cfg, 'guard_mount': lambda c: None,
                                   'regular': lambda *a, **k: None, 'run': lambda *a, **k: self.fail('preview ran host command')}):
@@ -44,32 +45,34 @@ class HostSetupTests(unittest.TestCase):
     def test_key_setup_refuses_orphaned_data_and_never_replaces_existing_key(self):
         ns = runpy.run_path(str(OPS / 'install-host'))
         prepare = ns['prepare_session_key']
-        with tempfile.TemporaryDirectory() as temp:
-            root = Path(temp)
-            data = root / 'apps/quacktuaries/data'
-            data.mkdir(parents=True)
-            secret = root / 'key'
-            cfg = {'session_secret': str(secret), 'data_root': str(root)}
-            (data / 'app.db').write_text('existing records')
-            with self.assertRaisesRegex(ns['Failure'], 'original key'): prepare(cfg)
-            self.assertFalse(secret.exists())
-            (data / 'app.db').unlink()
-            # Ownership checks are mocked; file creation and preservation are real.
-            original_stat = Path.stat
-            def stat(path, *args, **kwargs):
-                result = original_stat(path, *args, **kwargs)
-                if path == secret:
-                    fields = list(result)
-                    fields[4] = 10001
-                    return os.stat_result(fields)
-                return result
-            with patch('os.chown') as chown, patch.object(Path, 'stat', stat):
-                prepare(cfg)
-                before = secret.read_bytes()
-                self.assertGreaterEqual(len(before.strip()), 32)
-                prepare(cfg)
-                self.assertEqual(secret.read_bytes(), before)
-                self.assertEqual(chown.call_count, 1)
+        for app, key in (('quacktuaries', 'session_secret'), ('bernoulli', 'bernoulli_session_secret')):
+            with self.subTest(app=app), tempfile.TemporaryDirectory() as temp:
+                root = Path(temp)
+                data = root / 'apps' / app / 'data'
+                data.mkdir(parents=True)
+                secret = root / (app + '-key')
+                cfg = {'session_secret': str(root / 'unused'), 'bernoulli_session_secret': str(root / 'unused'),
+                       'data_root': str(root), key: str(secret)}
+                (data / 'app.db').write_text('existing records')
+                with self.assertRaisesRegex(ns['Failure'], 'original key'): prepare(cfg, app)
+                self.assertFalse(secret.exists())
+                (data / 'app.db').unlink()
+                # Ownership checks are mocked; file creation and preservation are real.
+                original_stat = Path.stat
+                def stat(path, *args, **kwargs):
+                    result = original_stat(path, *args, **kwargs)
+                    if path == secret:
+                        fields = list(result)
+                        fields[4] = 10001
+                        return os.stat_result(fields)
+                    return result
+                with patch('os.chown') as chown, patch.object(Path, 'stat', stat):
+                    prepare(cfg, app)
+                    before = secret.read_bytes()
+                    self.assertGreaterEqual(len(before.strip()), 32)
+                    prepare(cfg, app)
+                    self.assertEqual(secret.read_bytes(), before)
+                    self.assertEqual(chown.call_count, 1)
 
     def test_installer_saves_existing_file_before_replacing_and_is_idempotent(self):
         namespace = runpy.run_path(str(OPS / 'install-host'))

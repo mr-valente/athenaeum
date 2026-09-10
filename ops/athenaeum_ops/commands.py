@@ -7,7 +7,7 @@ import argparse
 import subprocess
 import sys
 
-from .common import Failure, compose_visible, operation_lock
+from .common import SERVICES, Failure, compose_visible, operation_lock
 from .repository import STACK, repo_status, sync
 
 
@@ -27,7 +27,7 @@ def add_commands(sub):
     actions.add_parser('ps', help='List containers and health')
     actions.add_parser('images', help='Show configured image references')
     logs = actions.add_parser('logs', help='Read container logs (Ctrl-C ends following)')
-    logs.add_argument('service', nargs='?', choices=('edge', 'athenaeum', 'quacktuaries'))
+    logs.add_argument('service', nargs='?', choices=SERVICES)
     logs.add_argument('--tail', type=positive, default=100)
     logs.add_argument('--follow', '-f', action='store_true')
     repo = sub.add_parser('repo', help='Manage the VM Git checkout; never deploys containers')

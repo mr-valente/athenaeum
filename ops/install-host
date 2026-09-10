@@ -15,7 +15,7 @@ import tempfile
 import urllib.request
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from athenaeum_ops.common import Failure, directory, guard_mount, load_config, operation_lock, regular, run, validate_compose
+from athenaeum_ops.common import APPS, Failure, data_dir, directory, guard_mount, load_config, operation_lock, regular, run, secret_path, validate_compose
 
 ROOT = Path(__file__).resolve().parent.parent
 AGE = {'x86_64': ('amd64', 'cbe24006683f8eb669266162894b9a522a1af52f2665fbc63a4bb032ed26ac10'),
@@ -79,20 +79,20 @@ def install_file(source, destination, rollback, mode=0o644):
     os.replace(temp, destination)
 
 
-def prepare_session_key(cfg):
-    """Create a key only for a new empty installation; never replace one."""
-    secret = Path(cfg['session_secret'])
+def prepare_session_key(cfg, app):
+    """Create an app's key only for its new empty installation; never replace one."""
+    secret = secret_path(cfg, app)
     if not secret.exists():
-        data = Path(cfg['data_root']) / 'apps/quacktuaries/data'
+        data = data_dir(cfg, app)
         if data.exists() and any(data.iterdir()):
-            raise Failure('Existing app data has no signing key; restore the original key')
+            raise Failure(f'Existing {app} data has no signing key; restore the original key')
         directory(secret.parent)
         with open(secret, 'x', opener=lambda p, f: os.open(p, f, 0o600)) as file:
             file.write(secrets.token_hex(32) + '\n')
         os.chown(secret, 10001, 10001)
     regular(secret, private=True)
     if secret.stat().st_uid != 10001 or len(secret.read_text().strip()) < 32:
-        raise Failure('Session key must be strong, mode 0600 and owned by UID 10001')
+        raise Failure(f'Session key for {app} must be strong, mode 0600 and owned by UID 10001')
 
 
 def install(args):
@@ -104,8 +104,9 @@ def install(args):
     guard_mount(cfg)
     for file in [cfg['compose_env'], *cfg['compose_files']]:
         regular(file, private=file == cfg['compose_env'])
-    if Path(cfg['session_secret']).exists():
-        regular(cfg['session_secret'], private=True)
+    for app in APPS:
+        if secret_path(cfg, app).exists():
+            regular(secret_path(cfg, app), private=True)
     if Path('/etc/docker/daemon.json').is_file():
         daemon = json.loads(Path('/etc/docker/daemon.json').read_text())
         if daemon.get('iptables') is False or daemon.get('firewall-backend') == 'nftables' or daemon.get('live-restore'):
@@ -124,7 +125,7 @@ def install(args):
     if os.geteuid() != 0:
         raise Failure('--apply requires root on the prepared Oracle host')
     model = validate_compose(cfg)
-    for service in ('edge', 'quacktuaries'):
+    for service in ('edge', *APPS):
         if model['services'][service].get('user') != '10001:10001':
             raise Failure('Host installation requires production UID/GID 10001:10001')
     run(['docker', 'version', '--format', '{{.Server.Version}}'])
@@ -135,7 +136,8 @@ def install(args):
     directory(state)
     os.chmod(state, 0o700)
     with operation_lock(cfg):
-        prepare_session_key(cfg)
+        for app in APPS:
+            prepare_session_key(cfg, app)
         with tempfile.TemporaryDirectory(prefix='athenaeum-install-') as temp:
             temp = Path(temp)
             rollback = state / ('install-rollback-' + __import__('datetime').datetime.now().strftime('%Y%m%dT%H%M%S'))
@@ -170,8 +172,7 @@ def install(args):
                 install_file(ROOT / 'ops/athenaeum-launcher', entry, rollback, 0o755)
             install_file(cfg['_source'], '/etc/athenaeum/recovery.json', rollback, 0o600)
             data = Path(cfg['data_root'])
-            for relative in ('apps/quacktuaries/data', 'edge/data', 'edge/config'):
-                dest = data / relative
+            for dest in [*(data_dir(cfg, app) for app in APPS), data / 'edge/data', data / 'edge/config']:
                 if not dest.exists():
                     dest.mkdir(parents=True, mode=0o700)
                     os.chown(dest, 10001, 10001)

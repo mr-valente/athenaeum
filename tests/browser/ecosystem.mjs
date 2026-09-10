@@ -42,8 +42,17 @@ assert.equal(redirect.headers.location, prefix + '/?code=A%2BB&next=x');
 const www = await request('/statistics/?test=yes', { host: 'www.' + base.hostname });
 assert.equal(www.status, 308);
 assert.equal(www.headers.location, base.origin + '/statistics/?test=yes');
-for (const route of ['/quacktuaries-other/', '/admin/', prefix + '/_health', '/statistics/example/'])
+for (const route of ['/quacktuaries-other/', '/admin/', prefix + '/_health', '/statistics/example/', '/bernoulli/_health'])
   assert.equal((await request(route)).status, 404, route);
+// Bernoulli shares the routing contract: slash redirect, stripped prefix, prefixed links.
+const bernoulli = await request('/bernoulli?code=A%2BB');
+assert.equal(bernoulli.status, 308);
+assert.equal(bernoulli.headers.location, '/bernoulli/?code=A%2BB');
+const landing = await request('/bernoulli/');
+assert.equal(landing.status, 200);
+assert(landing.body.includes('Bernoulli') && landing.body.includes('/bernoulli/join'));
+assert.equal((await request('/bernoulli/join')).status, 200);
+assert.equal((await request('/projects/bernoulli/')).status, 200);
 const forged = await request(prefix + '/admin/dashboard', {
   headers: { 'X-Forwarded-Proto': 'http', 'X-Forwarded-Host': 'attacker.invalid', 'Forwarded': 'host=attacker.invalid;proto=http' },
 });

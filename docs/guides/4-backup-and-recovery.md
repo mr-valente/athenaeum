@@ -6,12 +6,12 @@ Keep an encrypted backup outside Oracle, its SHA256, the private age identity, s
 
 Each verified snapshot contains:
 
-- Quacktuaries' SQLite database, captured through SQLite's online backup API.
-- Its persistent session-signing key.
+- Each registered app's SQLite database (Quacktuaries, Bernoulli), captured through SQLite's online backup API.
+- Each app's persistent session-signing key.
 - Compose definitions, Compose environment, and recovery configuration.
-- A manifest with file checksums, database schema/counts, architecture and running image IDs/digests.
+- A manifest with file checksums, per-app database schema/counts, architecture and running image IDs/digests.
 
-Caddy's certificate cache is not archived; certificates are reissued on a replacement host. The static website is recovered from Git and its image. Quacktuaries has no registered uploads. Adding application data requires explicit backup/restore support.
+Caddy's certificate cache is not archived; certificates are reissued on a replacement host. The static website is recovered from Git and its image. Neither app has registered uploads. An app that has not started yet is archived as its key alone. Adding application data requires explicit backup/restore support. Snapshots made before Bernoulli's registration (manifest schema 1) remain restorable and contain only Quacktuaries.
 
 Uploads are downloaded and checked by SHA256 before their commit object is written and verified. Only committed snapshots appear in `athenaeumctl list`. A restore drill separately proves decryption and application startup.
 
@@ -41,7 +41,7 @@ The script creates or reuses `~/.ssh/athenaeum-backup-identity.txt` and prints i
 
 ## Recovery drill and offsite copy
 
-Use this after first startup and periodically thereafter. It creates a verified backup, selects the current immutable app image, restores into a new private `/var/tmp` directory, and tests a copy in a non-root container with no network, published ports, or production mounts.
+Use this after first startup and periodically thereafter. It creates a verified backup, selects each app's current immutable image, restores into a new private `/var/tmp` directory, and tests a copy of every restored database in a non-root container with no network, published ports, or production mounts.
 
 **VM:**
 
@@ -162,7 +162,9 @@ The target must not already exist. Validation checks ciphertext SHA256, archive 
 
 If only the Oracle copy survives, an installed replacement host with working instance-principal access can use `athenaeumctl list` and `athenaeumctl restore --snapshot ID --target NEW_PATH --identity PRIVATE_FILE`. If host installation is blocked by surviving app data with a missing signing key, first download the selected ciphertext and its committed checksum through the Oracle Console and use the offline procedure. Do not delete the surviving database to bypass that check.
 
-### Transfer the recovered key and database
+### Transfer the recovered keys and databases
+
+Repeat this section for each app listed under `applications` in `restored/manifest.json`. The commands show Quacktuaries; Bernoulli's files are `secrets/bernoulli-session-secret` and `apps/bernoulli/app.db`, installed at `/etc/athenaeum/bernoulli-session-secret` and `/srv/athenaeum/apps/bernoulli/data/app.db`. An app archived without a database has only a key to transfer.
 
 **VM:** Before host service installation, prepare a private transfer directory:
 
@@ -179,7 +181,7 @@ scp -i "$HOME/.ssh/athenaeum-oracle" \
   ubuntu@REPLACE_VM_IP:.athenaeum-recovery-transfer/
 ```
 
-**VM:** After Guide 2 creates `/etc/athenaeum`, and before installing services, install the original signing key only if the destination is absent:
+**VM:** After Guide 2 creates `/etc/athenaeum`, and before installing services, install each original signing key only if its destination is absent:
 
 ```bash
 sudo test ! -e /etc/athenaeum/quacktuaries-session-secret && \
@@ -188,9 +190,9 @@ sudo test ! -e /etc/athenaeum/quacktuaries-session-secret && \
     /etc/athenaeum/quacktuaries-session-secret
 ```
 
-If the test fails, stop and check the existing key against the recovery source; do not overwrite a key used by surviving records. If it is already the correct key, retain it and continue. Complete Guide 2's service installation to prepare owned directories, but leave the containers and timer unstarted.
+If the test fails, stop and check the existing key against the recovery source; do not overwrite a key used by surviving records. If it is already the correct key, retain it and continue. Complete Guide 2's service installation to prepare owned directories, but leave the containers and timer unstarted. The installer generates a fresh key only for an app whose key is absent and whose data directory is empty.
 
-On a **fresh, empty replacement data directory**, install the validated database:
+On a **fresh, empty replacement data directory**, install each validated database:
 
 ```bash
 sudo python3 - <<'PY'
@@ -205,23 +207,24 @@ sudo install -o 10001 -g 10001 -m 0600 \
 
 Stop if the empty-directory check fails. Surviving-volume recovery keeps its existing database and any SQLite WAL files together; it does not use this copy step. Replacing an existing database is a separate maintenance operation: stop the stack/timer, preserve the entire existing data directory, then install a validated database/key pair. Never copy a lone live SQLite file or overwrite it with active writers.
 
-Choose known compatible retained images from your recovery records and confirm them against `restored/manifest.json`. Set explicit image overrides in `/etc/athenaeum/compose.env` before Guide 2 pulls or starts anything. Use the saved repository digest when available. Archive content does not automatically choose executable code. Keep the signing key stable so recovered browser sessions retain ownership.
+Choose known compatible retained images from your recovery records and confirm them against `restored/manifest.json`. Set explicit image overrides in `/etc/athenaeum/compose.env` before Guide 2 pulls or starts anything. Use the saved repository digest when available. Archive content does not automatically choose executable code. Keep the signing keys stable so recovered browser sessions retain ownership.
 
 After startup, verification and a fresh recovery drill pass, remove the transferred plaintext database/key and private restore workspace when no longer needed. Keep the encrypted external backup, checksum and private age identity.
 
 ## Test a selected snapshot in isolation
 
-On a prepared VM, choose a snapshot from `athenaeumctl list`, explicitly pull its matching immutable Quacktuaries image, and provide the private age identity as a mode-0600 file:
+On a prepared VM, choose a snapshot from `athenaeumctl list`, explicitly pull the matching immutable image of every app whose database it holds, and provide the private age identity as a mode-0600 file:
 
 ```bash
 athenaeumctl restore-test \
   --snapshot REPLACE_SNAPSHOT_ID \
   --target /var/tmp/athenaeum-restore-REPLACE_UNIQUE_NAME \
   --identity /run/athenaeum-restore-identity \
-  --image REPLACE_IMMUTABLE_IMAGE_ID_OR_REPOSITORY_DIGEST
+  --image quacktuaries=REPLACE_IMMUTABLE_IMAGE_ID_OR_REPOSITORY_DIGEST \
+  --image bernoulli=REPLACE_IMMUTABLE_IMAGE_ID_OR_REPOSITORY_DIGEST
 ```
 
-The image must already be present and match the snapshot. The test uses a copy of recovered data in an isolated container and leaves the validated restore directory for inspection. `restore` validates data without executing an image; use it first when reviewing a rebuild or architecture change. Remove temporary private identities after use.
+Each image must already be present and match the snapshot's record for that app. Supply exactly one `--image APP=…` per restored database; a bare reference is accepted only for a snapshot holding a single database, such as one made before Bernoulli's registration. The test runs each app in turn on a copy of its recovered data in an isolated container and leaves the validated restore directory for inspection. `restore` validates data without executing an image; use it first when reviewing a rebuild or architecture change. Remove temporary private identities after use.
 
 ## Image rollback
 
@@ -231,10 +234,10 @@ Choose a retained version compatible with the current database. Edit `/etc/athen
 QUACKTUARIES_IMAGE=valentemath/quacktuaries:v0.1.0-athenaeum
 ```
 
-Then run `athenaeumctl docker pull --deploy` and `athenaeumctl verify`. Use `ATHENAEUM_IMAGE` or `EDGE_IMAGE` for the other services. Remove a pin when ready to follow the moving tag again. This takes a backup but does not reverse database migrations; incompatible schemas need the deliberate data-recovery procedure above.
+Then run `athenaeumctl docker pull --deploy` and `athenaeumctl verify`. Use `BERNOULLI_IMAGE`, `ATHENAEUM_IMAGE` or `EDGE_IMAGE` for the other services. Remove a pin when ready to follow the moving tag again. This takes a backup but does not reverse database migrations; incompatible schemas need the deliberate data-recovery procedure above.
 
 ## Cleanup after a drill or recovery
 
-After verifying the offsite copy and recovered application, remove only the specific temporary identity, export, transfer directory or restored inspection directory you created. Restored plaintext includes the signing key and configuration. Inspect directory contents and choose exact paths; do not use broad wildcards against live storage. Keep `/srv/athenaeum`, `/etc/athenaeum`, installed operations/tools, the state directory, retained Docker images and the independent recovery identity.
+After verifying the offsite copy and recovered applications, remove only the specific temporary identity, export, transfer directory or restored inspection directory you created. Restored plaintext includes the signing keys and configuration. Inspect directory contents and choose exact paths; do not use broad wildcards against live storage. Keep `/srv/athenaeum`, `/etc/athenaeum`, installed operations/tools, the state directory, retained Docker images and the independent recovery identity.
 
 Installer rollback directories under `/var/lib/athenaeum/install-rollback-*` can contain private configuration. Retain the recent one while verifying a tool update; remove selected older copies only after confirming their replacement works. Deleting files is cleanup, not guaranteed forensic erasure from storage snapshots.

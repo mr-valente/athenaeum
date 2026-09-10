@@ -7,6 +7,7 @@ import shutil
 import tempfile
 import time
 from _support import finish, installed_config, recovery_python, say, Failure
+from athenaeum_ops.archive import applications
 from athenaeum_ops.common import operation_lock, regular, directory, deployment
 from athenaeum_ops.cli import recorded_backup, write_status
 from athenaeum_ops.recovery import restore, export_snapshot
@@ -36,7 +37,7 @@ def main():
             # Invalidate an older proof while this new drill is in progress.
             # A failed drill must not accidentally allow timer activation.
             write_status(cfg, 'last_restore_test', {'at': time.time(), 'status': 'running'})
-            say('1/4 Capturing a new verified backup and the current immutable app image...')
+            say('1/4 Capturing a new verified backup and the current immutable app images...')
             images = deployment(cfg)
             backup = recorded_backup(cfg)
             # mkdtemp reserves a unique parent; restore requires a target that
@@ -45,8 +46,15 @@ def main():
             target = work / 'restored'
             say('2/4 Decrypting and validating into ' + str(target))
             manifest = restore(cfg, str(target), str(key), identifier=backup['snapshot'])
-            say('3/4 Running the recovered app without network access or published ports...')
-            test_runtime(str(target), images['quacktuaries']['id'], manifest)
+            say('3/4 Running each recovered app without network access or published ports...')
+            for app, entry in applications(manifest).items():
+                if entry['database'] is None:
+                    say(f'    {app}: no database yet; nothing to run')
+                    continue
+                if app not in images:
+                    raise Failure(f'No running {app} container supplies an image for its restored database')
+                test_runtime(str(target), images[app]['id'], manifest, app)
+                say(f'    {app}: passed')
             say('4/4 Exporting the verified ciphertext...')
             exported = export_snapshot(cfg, backup['snapshot'], str(output))
             # scp runs as the SSH login user, not root. Grant that same sudo
