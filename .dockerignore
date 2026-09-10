@@ -16,6 +16,9 @@
 !content/**
 !deploy/
 !deploy/reserved-paths.json
+!deploy/sablier/
+!deploy/sablier/sablier.yaml
+!compose.yaml
 !docker/
 !docker/caddy.json
 !tests/

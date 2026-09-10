@@ -11,6 +11,9 @@ COPY src/ ./src/
 COPY design/ ./design/
 COPY content/ ./content/
 COPY deploy/reserved-paths.json ./deploy/reserved-paths.json
+# Checked by verify's Compose and Sablier contract tests; not shipped.
+COPY compose.yaml ./
+COPY deploy/sablier/sablier.yaml ./deploy/sablier/sablier.yaml
 COPY tests/ ./tests/
 RUN npm run verify
 # Copy the target binary as data on the native builder. Plain cp drops the
