@@ -116,8 +116,10 @@ def install(args):
     plan = {'data_uuid': cfg['filesystem_uuid'], 'operations': '/opt/athenaeum/operations',
             'venv': '/opt/athenaeum/operations/venv', 'age': cfg['age_binary'],
             'config': '/etc/athenaeum/recovery.json', 'state': cfg['state_dir'],
-            'units': ['athenaeum-backup.service', 'athenaeum-backup.timer', 'athenaeum-metadata-guard.service'],
+            'units': ['athenaeum-backup.service', 'athenaeum-backup.timer', 'athenaeum-metadata-guard.service',
+                      'athenaeum-report.service', 'athenaeum-report.timer'],
             'docker_drop_in': '/etc/systemd/system/docker.service.d/athenaeum-recovery.conf',
+            'report_timer': 'enabled' if cfg['monitor_object'] else 'disabled',
             'apply': args.apply, 'services_started': False}
     print(json.dumps(plan, indent=2))
     if not args.apply:
@@ -184,13 +186,17 @@ def install(args):
                 dest.mkdir(parents=True, exist_ok=True, mode=0o700)
                 directory(dest)
                 os.chmod(dest, 0o700)
-            for name in ('athenaeum-backup.service', 'athenaeum-backup.timer', 'athenaeum-metadata-guard.service'):
+            for name in plan['units']:
                 install_file(ROOT / 'ops/systemd' / name, Path('/etc/systemd/system') / name, rollback)
             install_file(ROOT / 'ops/systemd/athenaeum-docker-guard.conf',
                          '/etc/systemd/system/docker.service.d/athenaeum-recovery.conf', rollback)
             run(['systemctl', 'daemon-reload'])
+            # The report timer follows the configuration so `self update` is the
+            # whole story for turning it on or off; it needs no restore drill first.
+            run(['systemctl', 'enable' if cfg['monitor_object'] else 'disable', '--now', 'athenaeum-report.timer'])
             print('Installed persistence/recovery files; existing files saved under ' + str(rollback))
-            print('No services restarted or timers enabled. Follow docs/guides/2-host-setup.md for initial activation.')
+            print(f"Host report timer {plan['report_timer']} (monitor_object in recovery.json).")
+            print('No services restarted and the backup timer untouched. Follow docs/guides/2-host-setup.md for initial activation.')
 
 
 if __name__ == '__main__':

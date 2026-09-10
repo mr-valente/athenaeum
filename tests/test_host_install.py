@@ -35,12 +35,17 @@ class HostSetupTests(unittest.TestCase):
                'age_binary': '/opt/athenaeum/tools/age', 'filesystem_uuid': '1234-abcd',
                'session_secret': '/etc/athenaeum/key', 'bernoulli_session_secret': '/etc/athenaeum/bernoulli-key',
                'compose_env': '/etc/athenaeum/compose.env',
-               'compose_files': ['/opt/athenaeum/stack/compose.yaml']}
+               'compose_files': ['/opt/athenaeum/stack/compose.yaml'], 'monitor_object': 'monitor-host.json'}
         with patch.dict(globals_, {'load_config': lambda p: cfg, 'guard_mount': lambda c: None,
                                   'regular': lambda *a, **k: None, 'run': lambda *a, **k: self.fail('preview ran host command')}):
             with patch('platform.machine', return_value='aarch64'), redirect_stdout(io.StringIO()) as output:
                 install(SimpleNamespace(config='fixture', apply=False))
-        self.assertFalse(json.loads(output.getvalue())['services_started'])
+        plan = json.loads(output.getvalue())
+        self.assertFalse(plan['services_started'])
+        self.assertIn('athenaeum-report.timer', plan['units'])
+        self.assertEqual(plan['report_timer'], 'enabled')
+        for unit in plan['units']:
+            self.assertTrue((OPS / 'systemd' / unit).is_file(), unit)
 
     def test_key_setup_refuses_orphaned_data_and_never_replaces_existing_key(self):
         ns = runpy.run_path(str(OPS / 'install-host'))

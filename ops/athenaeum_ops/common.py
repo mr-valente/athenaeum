@@ -76,15 +76,16 @@ APPS = {
 SERVICES = ('edge', 'athenaeum', 'sablier', *APPS)
 
 
+def container_ok(item, allow_sleeping=True):
+    return ((item.get('State') == 'running' and item.get('Health') == 'healthy')
+            or (allow_sleeping and item.get('Service') in APPS
+                and item.get('State') == 'exited' and item.get('ExitCode') == 0))
+
+
 def containers_healthy(containers, allow_sleeping=True):
     if len(containers) != len(SERVICES) or {item.get('Service') for item in containers} != set(SERVICES):
         return False
-    return all(
-        (item.get('State') == 'running' and item.get('Health') == 'healthy')
-        or (allow_sleeping and item.get('Service') in APPS
-            and item.get('State') == 'exited' and item.get('ExitCode') == 0)
-        for item in containers
-    )
+    return all(container_ok(item, allow_sleeping) for item in containers)
 
 
 def secret_path(cfg, app):
@@ -95,7 +96,13 @@ def data_dir(cfg, app):
     return Path(cfg['data_root']) / 'apps' / app / 'data'
 
 
+# The host report is one bare object name, so it can never fall under the
+# backup prefix and is never mistaken for a recovery point.
+REPORT_OBJECT_NAME = re.compile(r'[a-zA-Z0-9._-]+')
+
 # Ordinary host setup only supplies the disk UUID, public backup key and bucket.
+# monitor_object names the host report the VM publishes to the bucket for an
+# external monitor (see report.py); null turns the report off.
 DEFAULTS = {
     'schema': 1, 'mode': 'production', 'data_root': '/srv/athenaeum',
     'state_dir': '/var/lib/athenaeum', 'compose_project': 'athenaeum',
@@ -106,6 +113,7 @@ DEFAULTS = {
     'age_binary': '/opt/athenaeum/tools/age', 'bucket_cap_bytes': 8_000_000_000,
     'max_snapshot_bytes': 1_000_000_000, 'max_restore_bytes': 4_000_000_000,
     'min_free_bytes': 2_000_000_000, 'stale_after_seconds': 7200,
+    'monitor_object': 'monitor-host.json',
 }
 
 
@@ -118,7 +126,7 @@ def load_config(path):
         expected = {'schema', 'mode', 'data_root', 'filesystem_uuid', 'state_dir', 'compose_project',
                     'compose_files', 'compose_env', 'recipient', 'age_binary',
                     'bucket_cap_bytes', 'max_snapshot_bytes', 'max_restore_bytes', 'min_free_bytes',
-                    'stale_after_seconds', 'store'} | secrets
+                    'stale_after_seconds', 'monitor_object', 'store'} | secrets
         if set(cfg) != expected or cfg['schema'] != 1 or cfg['mode'] not in ('production', 'local'):
             raise ValueError()
         for key in ('data_root', 'state_dir', 'compose_env', 'age_binary', *sorted(secrets)):
@@ -135,6 +143,9 @@ def load_config(path):
             if type(cfg[key]) is not int or cfg[key] <= 0:
                 raise ValueError()
         if cfg['max_snapshot_bytes'] > min(cfg['bucket_cap_bytes'], 5_000_000_000):
+            raise ValueError()
+        if cfg['monitor_object'] is not None and not (isinstance(cfg['monitor_object'], str)
+                                                      and REPORT_OBJECT_NAME.fullmatch(cfg['monitor_object'])):
             raise ValueError()
         store = cfg['store']
         if store['kind'] == 'oci':

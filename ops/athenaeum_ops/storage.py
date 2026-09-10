@@ -4,8 +4,15 @@ import hashlib
 import os
 from pathlib import Path
 import shutil
+import tempfile
 
-from .common import Failure, directory, regular, digest
+from .common import REPORT_OBJECT_NAME, Failure, directory, regular, digest
+
+
+def report_name(name):
+    if not isinstance(name, str) or not REPORT_OBJECT_NAME.fullmatch(name):
+        raise Failure('Invalid report object name')
+    return name
 
 
 class LocalStore:
@@ -56,6 +63,17 @@ class LocalStore:
         if digest(dest) != etag:
             raise Failure('Object changed; refusing retention deletion')
         dest.unlink()
+
+    def publish(self, name, body):
+        dest = self.path(report_name(name))
+        fd, temp = tempfile.mkstemp(prefix='.publish-', dir=self.root)
+        try:
+            with os.fdopen(fd, 'wb') as file:
+                file.write(body)
+            os.chmod(temp, 0o600)
+            os.replace(temp, dest)
+        finally:
+            Path(temp).unlink(missing_ok=True)
 
 
 class OCIStore:
@@ -126,6 +144,11 @@ class OCIStore:
 
     def delete(self, name, etag):
         self.client.delete_object(self.namespace, self.bucket, name, if_match=etag)
+
+    def publish(self, name, body):
+        """Overwrite the host report in place; unlike put, this object has no history to protect."""
+        self.client.put_object(self.namespace, self.bucket, report_name(name), body,
+                               content_length=len(body), content_type='application/json')
 
 
 def open_store(cfg):

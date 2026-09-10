@@ -106,9 +106,11 @@ sudo /opt/athenaeum/stack/ops/runbook/install-services --apply
 
 The script installs the isolated OCI SDK environment, checksum-pinned age tools, command launcher, per-app data directories and signing keys, and service units. It checks Python venv support and repairs a partial environment on retry. It activates metadata protection and restarts Docker to apply the UUID guard, then checks bucket read access through the instance principal.
 
+It also enables the [host report timer](3-daily-usage.md#host-report): every 15 minutes the VM writes one small JSON object to the backup bucket with its disk usage, backup freshness and container states, for an external monitor to read. Until backups are enabled the report says so; that is expected here. Set `"monitor_object": null` in `/etc/athenaeum/recovery.json` before this step to leave it off.
+
 `athenaeumctl` is now on your normal PATH and works from any directory. It requests sudo automatically through your existing administrator policy; a password prompt may appear. Host configuration and secrets remain private.
 
-**Checkpoint:** Disk and metadata guards are active, bucket read access succeeds, and apps and the backup timer are still unstarted. An empty snapshot list is normal for a new bucket. Installation failures identify the stage and a private log under `/var/lib/athenaeum/install-rollback-*`; inspect that log locally and retry the failed step.
+**Checkpoint:** Disk and metadata guards are active, bucket read access succeeds, and apps and the backup timer are still unstarted. An empty snapshot list is normal for a new bucket (the host report, once published, is listed under bucket usage but never as a snapshot). Installation failures identify the stage and a private log under `/var/lib/athenaeum/install-rollback-*`; inspect that log locally and retry the failed step.
 
 For a fresh replacement disk, [install the validated recovered databases](5-backup-and-recovery.md#transfer-the-recovered-keys-and-databases) now. Keep existing records on a surviving volume. Do not start containers until each selected database and its original key are in place.
 
@@ -187,9 +189,9 @@ Reconnect and check:
 ```bash
 athenaeumctl preflight
 sudo systemctl is-active docker athenaeum-metadata-guard.service
-sudo systemctl list-timers athenaeum-backup.timer --no-pager
+sudo systemctl list-timers athenaeum-backup.timer athenaeum-report.timer --no-pager
 athenaeumctl verify
 athenaeumctl status
 ```
 
-**Final checkpoint:** The correct data volume is mounted after reboot; the site and both apps are healthy over HTTPS; container metadata access is denied; backups are current and scheduled; and a verified recovery copy and independent identity are available outside Oracle. Continue with [Guide 3 — Daily usage](3-daily-usage.md).
+**Final checkpoint:** The correct data volume is mounted after reboot; the site and both apps are healthy over HTTPS; container metadata access is denied; backups are current and scheduled; the host report timer is scheduled; and a verified recovery copy and independent identity are available outside Oracle. Continue with [Guide 3 — Daily usage](3-daily-usage.md).

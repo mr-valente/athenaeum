@@ -1,0 +1,14 @@
+[Unit]
+Description=Athenaeum host report every 15 minutes
+
+[Timer]
+# Offset from the top of the hour so the report usually follows the hourly
+# backup rather than catching it in progress. Keep the cadence in step with
+# the monitor's INTERVAL_HOST and its request budget.
+OnCalendar=*:5/15
+RandomizedDelaySec=30s
+AccuracySec=15s
+Unit=athenaeum-report.service
+
+[Install]
+WantedBy=timers.target

@@ -11,7 +11,7 @@ athenaeumctl docker logs quacktuaries --tail 100 -f
 athenaeumctl docker logs bernoulli --tail 100
 ```
 
-`status` summarizes containers, disk space and backup freshness. `verify` checks HTTPS, redirects, health and metadata isolation. Ctrl-C stops log following. Use `docker ps` for container details or `docker images` for configured image references.
+`status` summarizes containers, disk space and backup freshness; the same facts reach the homelab through the [host report](#host-report) without logging in. `verify` checks HTTPS, redirects, health and metadata isolation. Ctrl-C stops log following. Use `docker ps` for container details or `docker images` for configured image references.
 
 ## Publish and deploy images
 
@@ -63,6 +63,20 @@ athenaeumctl verify
 `self update` creates the app's empty data directory and persistent signing key under `/etc/athenaeum`; it never replaces an existing key. The backup taken by `docker pull --deploy` records the new app as key-only until its first start creates a database. `verify` then probes every registered prefix.
 
 Keep domain/email and image overrides in `/etc/athenaeum/compose.env`, backup settings in `/etc/athenaeum/recovery.json`, and secrets/data outside Git. To inspect checkout changes, use `athenaeumctl repo status` and, as its owner, `git -C /opt/athenaeum/stack diff`.
+
+## Host report
+
+Every 15 minutes `athenaeum-report.timer` runs `athenaeumctl report`, which overwrites one small JSON object in the backup bucket (`monitor-host.json` by default) with what Oracle's own APIs cannot see: how full `/` and `/srv/athenaeum` are, when the last backup was verified and whether the last attempt failed, the date of the last restore drill, and the state of each container. It signs the upload with the instance principal the backups already use, opens no port and adds no IAM grant. An external monitor, such as [oci-monitor](https://github.com/mr-valente/oci-monitor) in the homelab, reads it back with a separate read-only identity and turns it into a dashboard and phone alerts.
+
+```bash
+athenaeumctl report --print
+sudo systemctl list-timers athenaeum-report.timer --no-pager
+sudo journalctl -u athenaeum-report.service -n 5
+```
+
+The report never waits for the operation lock, so it cannot delay a backup or a deployment; while one is running it reports the containers as busy instead of half-replaced. The backup inventory ignores the object, and retention never deletes it. Each publish is one Object Storage request, about 3,000 a month, which together with the hourly backup stays inside the 50,000 the Always Free tier includes; keep the timer's cadence in step with the monitor's `INTERVAL_HOST`.
+
+To turn the report off, set `"monitor_object": null` in `/etc/athenaeum/recovery.json` and run `athenaeumctl self update`; the installer disables the timer to match. A different object name must also be configured on the monitor and in its IAM policy.
 
 ## Routine care
 

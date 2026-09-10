@@ -1,0 +1,28 @@
+[Unit]
+Description=Athenaeum host report for the homelab monitor
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+UMask=0077
+ExecStart=/usr/local/sbin/athenaeumctl report
+TimeoutStartSec=90s
+Nice=10
+# Reads /proc, statvfs(), the private recovery config and backup status, asks
+# Docker for container states, then makes one outbound HTTPS request. It
+# writes nothing locally, so unlike the backup unit it gets no ReadWritePaths.
+CapabilityBoundingSet=
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=true
+LockPersonality=true
+MemoryMax=256M

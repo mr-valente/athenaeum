@@ -11,6 +11,7 @@ import time
 from .archive import applications
 from .common import APPS, SERVICES, Failure, atomic_json, compose, containers_healthy, guard_mount, load_config, operation_lock, preflight, validate_compose, run
 from .recovery import backup, cleanup_staging, export_snapshot, load_commits, restore
+from .report import build_report, publish_report
 from .runtime import select_images, test_runtime
 from .storage import open_store
 
@@ -84,6 +85,8 @@ def main():
         sub.add_parser(command, help=help_text)
     status = sub.add_parser('status', help='Show container health, disk space and backup freshness')
     status.add_argument('--json', action='store_true', help='Full diagnostic details')
+    report = sub.add_parser('report', help='Publish disk, backup and container state to the bucket for the monitor (also used by systemd)')
+    report.add_argument('--print', action='store_true', help='Print the report instead of publishing it')
     export = sub.add_parser('export')
     export.add_argument('--snapshot', required=True)
     export.add_argument('--output', required=True)
@@ -109,6 +112,9 @@ def main():
             return 0
         if args.command == 'guard-mount':
             result = guard_mount(cfg)  # Must work before Docker starts; no Docker or cloud call.
+        elif args.command == 'report':
+            # Deliberately outside the lock: a report must never delay or fail a backup.
+            result = build_report(cfg) if args.print else publish_report(cfg)
         else:
             with operation_lock(cfg):
                 if args.command == 'preflight':

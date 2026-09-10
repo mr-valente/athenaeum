@@ -1,6 +1,6 @@
 # Architecture and application contracts
 
-One Ubuntu 26.04 ARM VM runs Caddy, a static website, Quacktuaries, and Bernoulli. Cloudflare supplies DNS; Caddy terminates HTTPS. Images are built on the workstation, published to Docker Hub, and deployed manually with `athenaeumctl`. The hourly backup is the scheduled Athenaeum job.
+One Ubuntu 26.04 ARM VM runs Caddy, a static website, Quacktuaries, and Bernoulli. Cloudflare supplies DNS; Caddy terminates HTTPS. Images are built on the workstation, published to Docker Hub, and deployed manually with `athenaeumctl`. The hourly backup and the quarter-hourly host report are the scheduled Athenaeum jobs.
 
 ```text
 Internet → Caddy edge
@@ -45,12 +45,14 @@ Caddy redirects `www` to the apex, preserves queries on each app's slash redirec
 | `/opt/athenaeum/stack` on the VM | Git checkout of public source and Compose |
 | `/opt/athenaeum/operations` | Installed host code and its Python environment |
 | `/etc/athenaeum/compose.env` | Private host settings and optional image overrides |
-| `/etc/athenaeum/recovery.json` | Disk UUID and backup settings |
+| `/etc/athenaeum/recovery.json` | Disk UUID, backup settings and the host report's object name |
 | `/etc/athenaeum/quacktuaries-session-secret`, `/etc/athenaeum/bernoulli-session-secret` | Persistent signing keys, mode 0600, owner 10001 |
 | `/var/lib/athenaeum` | Private host operation lock, backup status and installer rollback files |
 | `/srv/athenaeum` | Exact-UUID mounted data volume |
 
 `repo sync` validates and fast-forwards a clean checkout; it does not change containers or installed tools. `self update` refreshes installed host tools without restarting Docker. `docker pull --deploy` holds the shared lock across a verified backup, image pull and replacement. Image rollback leaves the database unchanged; schema changes need a recovery plan.
+
+The host report (`ops/athenaeum_ops/report.py`, `athenaeum-report.timer`) publishes disk usage, backup freshness and container states to one object outside the backup prefix, with the same instance principal, for an external monitor; it probes the operation lock without waiting so it never delays a backup. See [daily usage](../guides/3-daily-usage.md#host-report).
 
 The UUID guard prevents Docker from starting against a missing data disk. Bind mounts refuse missing source directories. Both apps use SQLite; their databases are captured with SQLite's online backup API and, with their signing keys, settings, and image metadata, form one recovery point. Certificates are reissued on a replacement host. See [backups and restores](../guides/5-backup-and-recovery.md).
 
