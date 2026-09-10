@@ -1,0 +1,54 @@
+# 3 — Daily usage
+
+Run `athenaeumctl` from any directory in your VM SSH session. It requests sudo automatically using your administrator policy; a password prompt may appear. Use `--help` on any command. Stop at a failed command and resolve the reported cause before continuing.
+
+## Check the site
+
+```bash
+athenaeumctl status
+athenaeumctl verify
+athenaeumctl docker logs quacktuaries --tail 100 -f
+```
+
+`status` summarizes containers, disk space and backup freshness. `verify` checks HTTPS, redirects, health and metadata isolation. Ctrl-C stops log following. Use `docker ps` for container details or `docker images` for configured image references.
+
+## Publish and deploy images
+
+On your workstation, build only the project you changed:
+
+```fish
+build athenaeum
+# Or:
+build quacktuaries
+```
+
+Each project has its own version; Quacktuaries publishes both standalone and hosted variants. See [image builds](../development/image-builds.md) for first versions and build checks.
+
+After the pushes succeed, run on the VM during a break in classroom use:
+
+```bash
+athenaeumctl docker pull --deploy
+athenaeumctl verify
+```
+
+This takes a verified backup, pulls images, recreates changed containers and waits for health. A failed backup or pull stops before replacement. `docker pull` alone only downloads images. Existing data and the signing key remain in place.
+
+## Change Compose or host tools
+
+Edit, commit and push this repository from your workstation. Then on the VM:
+
+```bash
+athenaeumctl repo sync
+athenaeumctl docker deploy
+athenaeumctl verify
+```
+
+`repo sync` validates and fast-forwards a clean `main` checkout. It refuses local edits, untracked files and diverged history. It does not change running containers. `docker deploy` backs up and applies Compose with already downloaded images; use `docker pull --deploy` when downloads are also needed.
+
+When `ops/` changes, run `athenaeumctl self update` after sync. It refreshes installed tools without restarting Docker. Source content and baked Caddy configuration require rebuilding the relevant image; Git sync alone does not publish them.
+
+Keep domain/email and image overrides in `/etc/athenaeum/compose.env`, backup settings in `/etc/athenaeum/recovery.json`, and secrets/data outside Git. To inspect checkout changes, use `athenaeumctl repo status` and, as its owner, `git -C /opt/athenaeum/stack diff`.
+
+## Routine care
+
+Use `athenaeumctl backup` for an extra verified snapshot and `athenaeumctl list` to inspect recovery points. Monthly, check disk space, Oracle usage, Ubuntu updates, and repeat the [recovery drill](4-backup-and-recovery.md#recovery-drill-and-offsite-copy). Keep published image versions needed by backups. [Guide 4](4-backup-and-recovery.md) covers backup failures, rollback, restoration and cleanup of temporary recovery files.

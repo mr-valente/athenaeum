@@ -74,7 +74,7 @@ def main():
     for command, help_text in {
         'guard-mount': 'Check the exact data mount (also used by systemd)',
         'preflight': 'Check disk, free space, settings and persistent key',
-        'start': 'Legacy start using downloaded images; first setup uses the runbook',
+        'start': 'Start a prepared initial or recovered stack using downloaded images',
         'backup': 'Create and verify an encrypted backup now',
         'list': 'List verified backup snapshots and bucket usage',
         'cleanup-staging': 'Remove leftover temporary backup staging',

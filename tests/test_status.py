@@ -11,11 +11,11 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'ops'))
 from athenaeum_ops import cli
-from athenaeum_ops.common import Failure, compose
+from athenaeum_ops.common import Failure
 
 
 class StatusTests(unittest.TestCase):
-    def test_status_checks_containers_and_backup_without_release_state(self):
+    def test_status_checks_containers_and_backup(self):
         healthy = [{'Service': name, 'State': 'running', 'Health': 'healthy'} for name in cli.SERVICES]
         for encoding in ('array', 'lines'):
             for case in ('healthy', 'missing', 'unhealthy', 'stale', 'docker-failed'):
@@ -43,18 +43,6 @@ class StatusTests(unittest.TestCase):
                     self.assertEqual(result, 0 if case == 'healthy' else 1)
                     self.assertIn('stack', json.loads(output.getvalue()))
 
-    def test_old_image_overlay_cannot_override_manual_compose_images(self):
-        with tempfile.TemporaryDirectory() as temp:
-            state = Path(temp, 'deploy-state')
-            state.mkdir()
-            (state / 'images.json').write_text('{"services":{"athenaeum":{"image":"obsolete:old"}}}')
-            cfg = {'data_root': temp, 'compose_project': 'fixture', 'compose_env': '/fixture/compose.env',
-                   'compose_files': ['/fixture/compose.yaml']}
-            with patch('athenaeum_ops.common.run', return_value=b'') as run:
-                compose(cfg, 'config', '--quiet')
-            command = run.call_args.args[0]
-            self.assertNotIn(str(state / 'images.json'), command)
-            self.assertIn('/fixture/compose.yaml', command)
 
 
 if __name__ == '__main__':

@@ -1,26 +1,30 @@
 ---
 name: athenaeum-app
-description: Build or integrate an application for the Athenaeum ecosystem, including its container, URL prefix, shared style, persistence, and Markdown project link.
+description: Create or integrate an independently deployable Athenaeum application, including its image variants, URL prefix, persistence, recovery, shared style and Markdown project link.
 ---
 
 # Athenaeum apps
 
-Locate the Athenaeum checkout from the prompt or sibling `athenaeum/`. Read its `README.md`, `style.md`, and current Compose/Caddy files. Preserve unrelated changes. This skill does not authorize publication, cloud changes, or migration by itself.
+Locate the Athenaeum checkout from the prompt or sibling `athenaeum/`. Read its `README.md`, `docs/reference/architecture.md`, `style.md`, and current Compose/Caddy files. The numbered guides describe the current system: 1 provisions Oracle, 2 configures a host, 3 covers daily commands, and 4 covers backup/recovery. Preserve unrelated work and keep deployment within the user's authorized scope.
 
-Build one independently deployable container using the framework that fits the app. Keep the integration small:
+## Integrate the application
 
-- Add a service to `compose.yaml` on the private `apps` network, with no host-published port. Add a local build entry to `compose.local.yaml` if useful. Use Docker service names; do not assign static IPs. Owned apps are trusted network peers, not isolated tenants.
-- Add Caddy's `/<slug>` slash redirect and `handle_path /<slug>/*` route. Caddy strips the prefix; the app must generate prefixed links, forms, redirects, assets, and API URLs. Reserve the prefix in `deploy/reserved-paths.json`.
-- Add the project's Markdown page under `content/projects/`. This is the site's only editorial project catalog.
-- Apply shared CSS from `style.md`. Until selected, use accessible provisional UI; do not copy Quacktuaries' current theme. Record the shared style version when one is adopted.
-- Give browser cookies unique names, the app's path, and appropriate production security flags. Same-domain paths share an origin. Apps serving untrusted executable content need a separate origin.
-- Put persistent data under `/srv/athenaeum/apps/<slug>/`, mounted at `/data` or the app's documented equivalent. Keep non-root ownership, missing-disk protection, health checks, resource/log limits, and graceful shutdown. Store secrets outside Git/images. Ordinary apps get neither Docker nor OCI credentials.
+Choose the framework that fits the app and keep it independently deployable. Add:
 
-For a stateless app, document that Git/image rebuilding is its recovery method. For stateful apps, read `docs/recovery.md` and add a consistent backup and isolated restore procedure. Use SQLite's backup API or the database's own export, never copy a live database file. Register uploads and required keys too.
+- A service in `compose.yaml` on the private `apps` network, without a published host port. Use Docker service names and assigned addresses. Add a native development build to `compose.local.yaml` when useful.
+- Caddy's `/<slug>` slash redirect and `handle_path /<slug>/*` route. Caddy strips the prefix upstream; the app must generate prefixed links, forms, redirects, assets and API URLs. Reserve the path in `deploy/reserved-paths.json`.
+- A Markdown page in `content/projects/`, the editorial project catalog.
+- Explicit non-root ownership, health checks, resource/log limits, read-only root filesystem where supported, and graceful shutdown.
 
-For image delivery, follow `docs/delivery.md`: build locally, push to Docker Hub, and update manually with Compose over SSH. Each app owns its source repository, release Dockerfile/Compose recipe, Docker Hub repository (`valentemath/<app>`), shared Fish `builds.yaml` entry, and SemVer component record in `versions.txt`. Releasing an app must not build or increment Athenaeum or another app. Athenaeum's `docker/compose.yaml` builds only its website and Caddy edge.
+Give browser cookies unique names, the app's path, and production security flags. Same-domain paths share a browser origin, and owned apps are trusted network peers. Apps serving untrusted executable content need a separate origin/boundary. Ordinary apps receive neither Docker nor OCI credentials.
 
-Keep a general-purpose `valentemath/<app>:latest` image usable independently at the root path. Publish Athenaeum-specific defaults or assets as `valentemath/<app>:latest-athenaeum`, plus `<version>-athenaeum`. Follow Tailgate's multiple-output pattern in the shared `builds.yaml`: one Compose build produces both image lines, and one version resolution covers both. Use the app's own SemVer component and version build argument. For example:
+Apply the current shared CSS contract from `design/` and the decisions in `style.md`. Its visual specification remains provisional; do not copy Quacktuaries' appearance or invent a final theme. Bundle a pinned copy of shared assets in each consumer rather than fetching mutable styles at runtime.
+
+## Own the image and release
+
+Follow `docs/development/image-builds.md`. Each app owns its source repository, Dockerfile/Compose recipe, Docker Hub repository (`valentemath/<app>`), shared Fish `builds.yaml` entry and SemVer record in `versions.txt`. Releasing it must not build or increment Athenaeum or another app. Athenaeum's `docker/compose.yaml` builds only its website and edge.
+
+Use Tailgate's multiple-output pattern: one `build <app>` builds and publishes both variants at the same app version:
 
 ```yaml
 outputs:
@@ -32,14 +36,20 @@ outputs:
     tags: latest-athenaeum {app}-athenaeum
 ```
 
-Quacktuaries' `docker/compose.yaml` and Dockerfile demonstrate separate Compose services targeting standalone and hosted stages. Tags alone do not change behavior; apply only actual integration defaults to the hosted target. Keep standalone as the default Dockerfile target. Runtime secrets, volumes, domain and network trust remain deployment configuration.
+The standalone image works at the root path and is the default Dockerfile target. The hosted target adds actual Athenaeum defaults/assets, not merely a tag. Quacktuaries' own `docker/compose.yaml` and Dockerfile provide the example. Runtime secrets, volumes, domain and proxy trust remain deployment configuration. Both fixed image lines publish together; no separate `--tag-mod` build is needed. Target ARM64 for Oracle and keep native development behavior intact.
 
-A normal `build <app>` publishes both variants together with that app's version, independently of Athenaeum's release. No separate `--tag-mod` invocation is needed for these fixed output lines. Configure Athenaeum's production service to pull `valentemath/<app>:latest-athenaeum`, with an optional pinned version override for rollback. Keep native development Compose behavior intact and make build architecture explicit for the target host.
+## Register state and host checks
 
-Verify the independent project dry runs, both published tag lines, standalone root-path behavior, and hosted prefix/production defaults. Keep version tags for recovery. Plan incompatible database changes explicitly; do not add unattended migrations or image-update automation without a request.
+Put persistent data under `/srv/athenaeum/apps/<slug>/`, mounted at `/data` or the app's documented equivalent. Preserve the exact-UUID disk guard and refusal to create missing bind directories. A stateless app declares Git/image rebuilding as its recovery method.
 
-The current backup tooling knows Quacktuaries. A new stateful app needs its own consistent backup and restore support. Keep updates manual and scheduled outside active use.
+For stateful apps, read `docs/guides/4-backup-and-recovery.md` and implement a consistent snapshot and isolated restore. Use SQLite's backup API or the database's own export, never a copy of a live database file. Register uploads and required keys too.
 
-Verify the public prefix with a complete user workflow, including redirects/assets/cookies. For stateful apps, verify container replacement preserves records and a backup restores in isolation. Test native ARM when available and report pending checks honestly. Keep the existing deployment/data intact until an authorized migration is accepted.
+The host code currently enumerates three services and one SQLite application. Update `cli.py` service status, `commands.py` log choices, `verification.py` checks, and relevant tests for a new service. Stateful apps also require explicit changes to preflight/installer paths, archive manifests and restore/runtime hooks. Do not bypass the existing fail-closed checks: merely creating a new app data directory is insufficient and stops the current backup.
 
-Hand off the URL, data/secret paths, required configuration, checks, and deployment status. Keep deeper operator instructions in the existing delivery/recovery docs rather than repeating them here.
+## Verify and deliver
+
+Check independent builder dry runs and both image lines. Verify standalone root-path behavior and a complete hosted workflow, including redirects, assets, cookies and persisted records across replacement. For stateful apps, prove that a backup restores in isolation. Report native ARM or live checks accurately; use synthetic data for local testing.
+
+Source changes are committed/pushed on the workstation, then synced with `athenaeumctl repo sync`. Host-tool changes require `athenaeumctl self update`; Compose-only changes use `docker deploy`; published image changes use `docker pull --deploy`. Finish with `athenaeumctl verify`. These deployment commands take a backup first; schedule them outside active classroom use. See `docs/guides/3-daily-usage.md`.
+
+Keep incompatible schema changes explicit and preserve compatible image versions for recovery. Add unattended migrations or image-update automation only if requested. Update the architecture contract and relevant guide when behavior changes; keep operational documentation current, without phase histories or duplicated upgrade instructions. Hand off the public URL, state/secret paths, required settings, validation and actual deployment status.

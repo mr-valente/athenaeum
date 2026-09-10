@@ -189,7 +189,7 @@ def install(args):
                          '/etc/systemd/system/docker.service.d/athenaeum-recovery.conf', rollback)
             run(['systemctl', 'daemon-reload'])
             print('Installed persistence/recovery files; existing files saved under ' + str(rollback))
-            print('No services restarted or timers enabled. Follow docs/recovery.md and docs/delivery.md for activation.')
+            print('No services restarted or timers enabled. Follow docs/guides/2-host-setup.md for initial activation.')
 
 
 if __name__ == '__main__':

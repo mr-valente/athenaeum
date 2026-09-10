@@ -8,7 +8,7 @@ import subprocess
 import sys
 
 from .common import Failure, compose_visible, operation_lock
-from .repository import STACK, adopt, repo_status, sync
+from .repository import STACK, repo_status, sync
 
 
 def positive(value):
@@ -34,7 +34,6 @@ def add_commands(sub):
     actions = repo.add_subparsers(dest='repo_command', required=True)
     actions.add_parser('status', help='Show local branch, commit and edits')
     actions.add_parser('sync', help='Fetch main, validate Compose, fast-forward a clean checkout')
-    actions.add_parser('adopt', help='Convert an scp setup to Git, preserving the old directory')
     sub.add_parser('verify', help='Verify public HTTPS, container health and metadata isolation')
     tools = sub.add_parser('self', help='Maintain the installed host command tools')
     actions = tools.add_subparsers(dest='self_command', required=True)
@@ -72,7 +71,7 @@ def dispatch(cfg, args):
             with operation_lock(cfg):
                 repo_status()
         else:
-            (adopt if args.repo_command == 'adopt' else sync)(cfg)
+            sync(cfg)
     elif args.command == 'self':
         if cfg['mode'] != 'production':
             raise Failure('Tool installation is for the production VM.')

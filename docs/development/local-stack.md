@@ -15,7 +15,7 @@ curl --cacert .state/local/edge/data/caddy/pki/authorities/local/root.crt \
   https://localhost:8443/
 ```
 
-Initialization preserves existing data, keys, and settings. Check `.state/local/compose.env` for your saved ports; this workstation's existing setup uses **4384/4385**. No subnet configuration is needed. Old `QUACK_*` network settings, if present in an existing local file, are ignored.
+Initialization preserves existing data, keys, and settings. Check `.state/local/compose.env` for your saved ports; this workstation's existing setup uses **4384/4385**. Docker assigns addresses on the private app network.
 
 ## Work and test
 
@@ -43,7 +43,7 @@ All services use non-root processes, read-only root filesystems, restricted capa
 
 Caddy redirects `/quacktuaries` to `/quacktuaries/`, preserves queries, and strips the prefix upstream. App links, forms, assets, and redirects include the public prefix. Cookies have a unique name, app path, and production security flags. All apps on the domain still share one browser origin.
 
-Bind mounts require existing directories. Production also uses the filesystem UUID guard; a directory's existence alone does not prove that the block disk mounted. See [recovery](recovery.md).
+Bind mounts require existing directories. Production also uses the filesystem UUID guard; a directory's existence alone does not prove that the block disk mounted. See [recovery](../guides/4-backup-and-recovery.md).
 
 ## Automated checks
 
@@ -52,7 +52,7 @@ ops/local-stack up --build --wait
 ops/local-stack ps
 ```
 
-This builds native development images and waits for container health checks. Run host recovery tests as described in [recovery](recovery.md), and use the browser workflow below to verify routing and classroom behavior. Production ARM64 builds and Docker Hub publication are described in [manual delivery](delivery.md).
+This builds native development images and waits for container health checks. Run host recovery tests as described in [recovery](../guides/4-backup-and-recovery.md), and use the browser workflow below to verify routing and classroom behavior. Production ARM64 builds and Docker Hub publication are described in [manual delivery](image-builds.md).
 
 Browser checks use `tests/browser/` and create synthetic data only:
 
@@ -66,4 +66,4 @@ TEST_BASE_URL=https://localhost:4385 node tests/browser/ecosystem.mjs --verify-r
 
 Use your configured HTTPS port. The runner forces connections to loopback and verifies the generated local CA. It checks teacher/student flows, cookies, exports, static files, and persistence across replacement. Local screenshots are not final style acceptance.
 
-Production setup uses the two example configuration files and [Oracle guide](guides/2-oracle-setup-guide.md). Cloud HTTPS, native ARM, mount-loss/reboot recovery, and Cloud Run migration remain deployment checks. The original subdomain and its data have not been changed.
+Use [Guide 2](../guides/2-host-setup.md) for production setup and its live HTTPS, ARM, storage and reboot checkpoints.

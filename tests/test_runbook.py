@@ -85,7 +85,7 @@ class RunbookTests(unittest.TestCase):
             self.assertEqual(list(base.glob('.fstab-athenaeum-*')), [])
 
     def test_bad_redirect_does_not_pass_https_check(self):
-        probe = script('verify-site')['probe']
+        from athenaeum_ops.verification import probe
         class Response:
             code = 308
             headers = {'Location': '/wrong'}
@@ -137,7 +137,7 @@ class RunbookTests(unittest.TestCase):
                 existing(directory)
 
     def test_update_holds_one_lock_and_stops_on_backup_or_pull_failure(self):
-        operate = script('stack')['operate']
+        from athenaeum_ops.management import operate
         for failure in (None, 'backup', 'pull', 'up'):
             events = []
             class Lock:
@@ -163,18 +163,6 @@ class RunbookTests(unittest.TestCase):
             if failure not in ('backup', 'pull'): expected += ['up']
             if failure is None: expected += ['ps']
             self.assertEqual(events, expected + ['unlocked'])
-
-    def test_start_refuses_existing_records_before_pull(self):
-        operate = script('stack')['operate']
-        with tempfile.TemporaryDirectory() as temp:
-            data = Path(temp, 'apps/quacktuaries/data')
-            data.mkdir(parents=True)
-            (data / 'app.db').write_text('existing records')
-            with patch.dict(operate.__globals__, {'operation_lock': lambda c: nullcontext(), 'preflight': lambda c: None,
-                    'validate_compose': lambda c: None, 'run': lambda a: b'',
-                    'compose': lambda *a: self.fail('Existing records reached Compose pull/up')}):
-                with self.assertRaisesRegex(Failure, 'Existing app data'):
-                    operate({'data_root': temp}, 'start')
 
     def test_recovery_uses_exact_image_and_cleans_only_its_private_key_on_failure(self):
         main = script('check-recovery')['main']

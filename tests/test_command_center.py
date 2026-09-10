@@ -112,38 +112,6 @@ class RepositoryTests(unittest.TestCase):
         with self.assertRaisesRegex(Failure, 'Expected origin'):
             repository.sync(self.cfg, self.root)
 
-    def test_adopt_preserves_all_copied_files_and_validates_before_swap(self):
-        import shutil
-        shutil.rmtree(self.root / '.git')
-        (self.root / 'local-notes').write_text('preserve notes\n')
-        self.advance()
-        self.validate.side_effect = Failure('invalid candidate')
-        with self.assertRaises(Failure):
-            repository.adopt(self.cfg, self.root)
-        self.assertEqual((self.root / 'local-notes').read_text(), 'preserve notes\n')
-        self.assertFalse((self.root / '.git').exists())
-        self.validate.side_effect = None
-        repository.adopt(self.cfg, self.root)
-        self.assertEqual((self.root / 'compose.yaml').read_text(), 'updated\n')
-        backups = list(self.base.glob('.athenaeum-repo-*/previous-stack'))
-        self.assertEqual(len(backups), 1)
-        self.assertEqual((backups[0] / 'local-notes').read_text(), 'preserve notes\n')
-        self.assertTrue((self.root / '.git').is_dir())
-        with self.assertRaisesRegex(Failure, 'already exists'):
-            repository.adopt(self.cfg, self.root)
-
-    def test_adopt_restores_original_directory_when_final_rename_fails(self):
-        import shutil
-        shutil.rmtree(self.root / '.git')
-        original = Path.rename
-        def rename(path, target):
-            if path.name == 'candidate':
-                raise OSError('simulated rename failure')
-            return original(path, target)
-        with patch.object(Path, 'rename', rename), self.assertRaises(OSError):
-            repository.adopt(self.cfg, self.root)
-        self.assertEqual((self.root / 'compose.yaml').read_text(), 'initial\n')
-        self.assertFalse((self.root / '.git').exists())
 
 
 class CommandTests(unittest.TestCase):

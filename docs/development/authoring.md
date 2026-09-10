@@ -21,7 +21,7 @@ Write the lesson here.
 
 Run `npm run dev`. Set `draft: false` to preview the page at `/statistics/first-lesson/`. Run `npm run verify` before publishing. Development and production both exclude drafts; preview a draft by changing it locally, then restore `draft: true` if it should stay unpublished.
 
-Content changes require rebuilding the production image. Automatic GitHub deployment belongs to Phase E and is not installed yet.
+Content changes require rebuilding and publishing the Athenaeum image, then deploying it manually. See [image builds](image-builds.md) and [daily usage](../guides/3-daily-usage.md).
 
 ## Paths and navigation
 
@@ -75,18 +75,18 @@ order: 20
 Explain what visitors can do here.
 ```
 
-The project page appears at `/projects/my-app/` with an “Open My app” link. After an app is integrated and its slug registered, its destination can be `/my-app/`. The Quacktuaries listing now targets `/quacktuaries/` in the local ecosystem. Its existing Cloud Run subdomain remains unchanged until the later live cutover.
+The project page appears at `/projects/my-app/` with an “Open My app” link. After an app is integrated and its slug registered, its destination can be `/my-app/`. The Quacktuaries listing targets `/quacktuaries/`.
 
 ## Links and downloads
 
 Prefer source-relative Markdown links:
 
 ```markdown
-[Back to statistics](index.md)
-[Worked example](first-lesson.md#worked-example)
-![Distribution of sample values](assets/distribution.png)
-[Worksheet](assets/worksheet.pdf)
-[Data](assets/values.csv)
+[Back to statistics](../index.md)
+[Worked example](../first-lesson.md#worked-example)
+![Distribution of sample values](../assets/distribution.png)
+[Worksheet](../assets/worksheet.pdf)
+[Data](../assets/values.csv)
 ```
 
 Place these files beside the page, under its `assets/` directory, or elsewhere inside `content/`. Local page links, fragments, and files are checked during the build. Root-relative published URLs also work. Application links must be root-relative or absolute; registered app deep links are passed through without checking application endpoints. Absolute HTTP(S) links are external and are not checked for availability.

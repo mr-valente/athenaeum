@@ -5,6 +5,6 @@
 if [ "$(/usr/bin/id -u)" -ne 0 ]; then
     exec /usr/bin/sudo -- /usr/local/sbin/athenaeumctl "$@"
 fi
-# Both /usr/local/bin and the legacy systemd /usr/local/sbin entry use this
+# Both /usr/local/bin and the systemd /usr/local/sbin entry use this
 # launcher. Absolute paths make all commands independent of the shell's cwd.
 exec /opt/athenaeum/operations/venv/bin/python /opt/athenaeum/operations/athenaeumctl "$@"

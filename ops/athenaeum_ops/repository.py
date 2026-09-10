@@ -47,7 +47,7 @@ def git(root, *args):
 def checkout(root, require_main=True):
     directory(root)
     if not (root / '.git').exists():
-        raise Failure('This is a copied directory, not a Git checkout. Run athenaeumctl repo adopt once.')
+        raise Failure('Expected a Git checkout at /opt/athenaeum/stack; follow the host setup guide.')
     if Path(git(root, 'rev-parse', '--show-toplevel')) != root:
         raise Failure('Expected the stack directory itself to be the Git checkout.')
     if not require_main:
@@ -124,37 +124,3 @@ def sync(cfg, root=STACK):
         print('For Compose changes: athenaeumctl docker deploy')
         print('For new images too: athenaeumctl docker pull --deploy')
         print('For ops/ changes: athenaeumctl self update')
-
-
-def adopt(cfg, root=STACK):
-    """Replace an scp-era directory with a clone, preserving the entire old copy.
-
-    The command name is the explicit request to adopt Git. A failed clone or
-    validation leaves the current directory intact. Renames occur under the
-    host lock, on the same filesystem; a failed second rename restores the old
-    directory. No source files, settings, databases or containers are deleted.
-    """
-    with operation_lock(cfg):
-        directory(root)
-        if (root / '.git').exists():
-            raise Failure('A Git checkout already exists; use athenaeumctl repo sync.')
-        temp = owned_temp(root.parent, root.stat())
-        candidate = temp / 'candidate'
-        # Reserve a unique backup name using the same private staging directory.
-        saved = temp / 'previous-stack'
-        try:
-            print('Cloning Athenaeum main and validating Compose...', flush=True)
-            git(root, 'clone', '--origin', 'origin', '--branch', BRANCH, '--single-branch', REMOTE, str(candidate))
-            validate_compose(candidate_config(cfg, root, candidate))
-            root.rename(saved)
-            try:
-                candidate.rename(root)
-            except BaseException:
-                saved.rename(root)
-                raise
-        finally:
-            if not saved.exists():
-                shutil.rmtree(temp)
-        print('Git checkout ready at ' + str(root))
-        print('Previous copied files preserved at ' + str(saved))
-        print('Review any local customizations there. Containers and /etc settings were not changed.')

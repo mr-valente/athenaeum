@@ -1,66 +1,56 @@
 # Athenaeum
 
-`valentemath.com`: a website built from Markdown, with your apps alongside it on an Oracle ARM VM.
+`valentemath.com`: a website built from Markdown, with independently deployed apps on an Oracle ARM VM.
 
 ```text
 Caddy (HTTPS)
-  ├─ /                → Athenaeum (static website)
-  └─ /quacktuaries/    → Quacktuaries (classroom app)
+  ├─ /                → Athenaeum static website
+  └─ /quacktuaries/   → Quacktuaries classroom app
 
-Block volume → live data
+Block volume → persistent data
 Oracle bucket → encrypted backups
-Local Fish build → Docker Hub → manual Compose update over SSH
+Local builds → Docker Hub → manual deployment over SSH
 ```
 
-## Start locally
+## Operator guides
 
-```bash
-ops/local-stack init
-ops/local-stack up --build --wait
-```
+1. [Oracle infrastructure](docs/guides/1-oracle-infrastructure.md) — provision or recover cloud resources.
+2. [Host setup](docs/guides/2-host-setup.md) — prepare Ubuntu and start the stack.
+3. [Daily usage](docs/guides/3-daily-usage.md) — Git, images, logs and health checks.
+4. [Backup and recovery](docs/guides/4-backup-and-recovery.md) — recovery drills, offsite copies and disaster recovery.
 
-Open `https://localhost:8443/`. The local certificate needs browser trust; see [local development](docs/local-ecosystem.md). Existing local settings, ports, data, and keys are preserved.
+Use guides 1 and 2 for a fresh installation or replacement host, consulting guide 4 when restoring data. The [documentation index](docs/README.md) includes development and architecture references.
 
-Edit `content/` to publish pages, projects, and classroom resources. Navigation comes from the Markdown directory. See [authoring](docs/authoring.md).
+## Daily operation
 
-## Build and deploy
-
-In your normal Fish shell on this workstation:
+On the workstation, build the project you changed:
 
 ```fish
 build athenaeum
+# Or:
 build quacktuaries
 ```
 
-Your shared `~/.config/builder/builds.yaml` has independent entries: Athenaeum publishes its website and edge as `valentemath/athenaeum:latest` and `:latest-edge`; Quacktuaries publishes both `valentemath/quacktuaries:latest` (standalone) and `:latest-athenaeum` from its own checkout. Each project has its own version counter and retained version tags. Build only the project you changed.
+Each project has its own image repository and version counter. Athenaeum publishes its site and edge; Quacktuaries publishes standalone and Athenaeum variants together. See [image builds](docs/development/image-builds.md).
 
-The first build asks for a starting version; `--version v0.1.0` supplies it explicitly. One `build quacktuaries` publishes both variants at the same Quacktuaries version, following Tailgate's multiple-output pattern.
-
-[Part 1: Oracle provisioning](<docs/guides/1 - athenaeum_oracle_gui_guide.md>) covers creating the VM and first SSH connection. Continue with **[Part 2: Ubuntu 26.04 host setup and deployment](docs/guides/2-oracle-setup-guide.md)**. Normal setup has two configuration files:
-
-- `compose.env`: domain and contact email, with optional image-version overrides.
-- `recovery.json`: disk UUID, public backup key, Oracle region/namespace/bucket.
-
-The installer also generates a persistent session-secret file. After setup, SSH to the VM during a break in classroom use:
+On the VM, from any directory:
 
 ```bash
 athenaeumctl docker pull --deploy
 athenaeumctl verify
 ```
 
-The `athenaeumctl` command center works from any directory and invokes sudo automatically through your existing administrator policy. Use `repo sync` for Git changes, `self update` for host tools, and `docker pull --deploy` for a verified backup followed by image deployment. `status`, `verify`, and `docker logs` cover routine checks. See the [daily command reference](docs/delivery.md#daily-commands-on-the-vm) and [upgrade steps for an existing VM](docs/guides/2-oracle-setup-guide.md#upgrade-an-existing-vm-to-the-command-center). The [commented runbook scripts](ops/runbook) handle first setup and recovery drills.
+`athenaeumctl` requests sudo automatically through your existing administrator policy. Deployment takes a verified backup before image pull and replacement. Use `repo sync` for Git-managed Compose changes and `self update` for installed host-tool changes. Images update only when you deploy; backups run hourly.
 
-The [manual delivery guide](docs/delivery.md) covers publishing, first startup, failed updates, and version rollback. [Recovery](docs/recovery.md) covers restoring data. Backups run hourly; image updates are manual.
+## Develop locally
 
-The root [Compose file](compose.yaml) defines production images and persistent data mounts. [docker/compose.yaml](docker/compose.yaml) supplies workstation release builds; `compose.local.yaml` supplies the local development stack. Disk guards, resource/log limits, encrypted backups, and persistent session keys remain in place.
+```bash
+ops/local-stack init
+ops/local-stack up --build --wait
+```
 
-## Continue building
+Open the configured local HTTPS address; the default is `https://localhost:8443/`. See [local stack](docs/development/local-stack.md) for certificate trust and saved ports.
 
-- [Implementation plan](docs/implementation-plan.md): remaining work and acceptance.
-- [Shared style](style.md): still to be selected; do not copy Quacktuaries' current theme.
-- [Application skill](skills/athenaeum-app/SKILL.md): instructions for an agent adding an app.
-- [Site development](docs/development.md): build tooling and tests.
+Edit `content/` for pages, project links and classroom resources. [Authoring](docs/development/authoring.md) describes Markdown, drafts, math and downloads. [Site development](docs/development/site-development.md) covers the toolchain and tests.
 
-> Create [APP] at `valentemath.com/[SLUG]/`. Read `skills/athenaeum-app/SKILL.md` in the Athenaeum checkout and its `style.md`, then build the app and integrate it.
-
-The operator has completed the Oracle runbook and verified the live website and recovery checkpoints. Cloud Run data migration remains a separate operation.
+To add an app, use the [app-creation skill](skills/athenaeum-app/SKILL.md), [architecture contracts](docs/reference/architecture.md), and [shared style](style.md). Each app remains independently buildable and deployable.

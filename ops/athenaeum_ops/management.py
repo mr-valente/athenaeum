@@ -1,6 +1,5 @@
 """Daily Docker actions share the same lock and backup gates as the runbook."""
-from pathlib import Path
-from .common import operation_lock, preflight, validate_compose, compose, compose_visible, run, Failure
+from .common import operation_lock, preflight, validate_compose, compose, compose_visible, run
 from .cli import recorded_backup
 
 
@@ -22,12 +21,6 @@ def operate(cfg, command, visible=False):
             say('Backing up the current database, signing key, configuration and image references...')
             result = recorded_backup(cfg)
             say('Verified recovery point: ' + result['snapshot'])
-        elif command == 'start':
-            # start is only for an empty first install or an idempotent retry
-            # before the app creates its database. Existing records require the
-            # update path and its pre-update backup, even after failed startup.
-            if any((Path(cfg['data_root']) / 'apps/quacktuaries/data').iterdir()):
-                raise Failure('Existing app data: use stack update so a backup precedes replacement.')
         if command != 'deploy':
             say('Pulling the configured Docker Hub images; running containers stay in place...')
             docker(cfg, 'pull')

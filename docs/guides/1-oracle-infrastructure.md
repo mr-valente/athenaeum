@@ -1,12 +1,10 @@
-# Athenaeum on Oracle Cloud
-
-**Operator edition - 8 September 2026**
+# 1 — Oracle infrastructure
 
 A click-by-click Oracle Cloud Infrastructure (OCI) Console walkthrough for provisioning the Athenaeum host: one Ampere A1 VM, a separate data disk, a reserved public IPv4 address, a small public VCN, and private Object Storage backups.
 
 > **Scope:** This document covers Oracle-side provisioning and the first connection checkpoint. It intentionally stops before formatting the data disk, installing Docker, deploying Athenaeum, or changing Cloudflare DNS.
 
-> **Source basis:** The current Athenaeum Oracle setup guide, the Athenaeum project guide, and the May 2026 Oracle VPS setup transcript. The old transcript is used only for OCI Console lessons and pitfalls; its AMD/Pangolin-specific architecture is not reused.
+Use this guide to provision an independent installation or replace lost infrastructure. For disaster recovery, first read [Guide 4](4-backup-and-recovery.md#disaster-recovery) and inventory surviving volumes, buckets, reserved addresses and keys. Reuse those resources where appropriate; replace only what was lost. A duplicate system needs distinct resource names, a domain, a volume, and its own backup bucket and identity.
 
 ---
 
@@ -35,24 +33,11 @@ Athenaeum compartment
 +-- athenaeum-backup-objects       IAM policy
 ```
 
-### What we are deliberately *not* creating
-
-- No NAT Gateway
-- No private subnet
-- No load balancer
-- No public database port
-- No public Docker application ports
-- No automatically assigned ephemeral public IP
-
-The public surface of the finished host is intentionally small: SSH from your current public IP only, plus HTTP/HTTPS for Caddy.
-
----
-
-# Phase A - Preflight
+The public surface is SSH from your current public IP, plus HTTP/HTTPS for Caddy.
 
 ## 2. Confirm region, allowance, and existing storage
 
-At the top of the OCI Console, confirm you are in the tenancy's **home region**.
+At the top of the OCI Console, select the tenancy's **home region**. Record the full region identifier: Ashburn is `us-ashburn-1`, also shown as `IAD`/`iad`. Availability and fault domains are separate fields. [Oracle region identifiers](https://docs.oracle.com/en-us/iaas/Content/General/Concepts/regions.htm).
 
 Use the Console search bar and open:
 
@@ -67,7 +52,7 @@ Inspect Compute and Block Volume usage across compartments, including stopped in
 | Athenaeum ARM compute | `VM.Standard.A1.Flex`, 2 OCPUs, 12 GB RAM |
 | Athenaeum boot volume | 50 GB |
 | Athenaeum data volume | Size chosen after inventory; 100 GB only if total allowance permits |
-| Existing AMD boot/storage | Count it before creating the data disk |
+| Other existing boot/block volumes | Count them before allocating storage |
 | Object Storage backups | Budget about 8 GB initially |
 
 > **Important:** A service limit is not a free-price guarantee. Review the current OCI cost estimate and account-specific allowance before creating resources.
@@ -112,9 +97,9 @@ Click **Create Compartment**.
 
 ## 4. Create the dedicated SSH key locally
 
-On your Windows computer, open PowerShell:
+On your Arch workstation, open a terminal:
 
-```powershell
+```bash
 ssh-keygen -t rsa -b 4096 -f "$HOME/.ssh/athenaeum-oracle" -C athenaeum-oracle
 ```
 
@@ -130,8 +115,6 @@ athenaeum-oracle.pub   PUBLIC  - upload this to Oracle
 > **Never upload the private key.** Oracle receives only the `.pub` file.
 
 ---
-
-# Phase B - Networking
 
 ## 5. Create the VCN manually
 
@@ -288,8 +271,6 @@ No NAT Gateway. No private subnet. No load balancer.
 
 ---
 
-# Phase C - Compute and persistent storage
-
 ## 10. Create the ARM VM
 
 Navigate:
@@ -314,7 +295,7 @@ Click **Change Image**.
 
 Choose a Canonical **Ubuntu 26.04 LTS** platform image compatible with **Arm / aarch64 / arm64**.
 
-> The old May 2026 setup used AMD E2 and therefore an AMD64 image. Athenaeum uses Ampere A1, so the architecture must be ARM64.
+Use an ARM64/aarch64 image for the Ampere A1 shape.
 
 ### Shape
 
@@ -459,8 +440,6 @@ Click **Attach** and wait for status **Attached**.
 
 ---
 
-# Phase D - Backups and IAM
-
 ## 14. Create the private Object Storage bucket
 
 Navigate:
@@ -564,19 +543,17 @@ where target.bucket.name = 'athenaeum-backups'
 
 Click **Create**.
 
-> **Historical OCI pitfall avoided:** In the old setup, resources lived in the root tenancy, which caused confusing `in tenancy` versus `in compartment` policy syntax. Athenaeum lives in a real child compartment and the policy uses OCIDs explicitly.
+Create the policy for the `Athenaeum` child compartment and use its OCID in both statements. When replacing a VM, update the dynamic-group rule to its new instance OCID.
 
 Allow time for IAM/dynamic-group changes to propagate before diagnosing an authorization failure.
 
 ---
 
-# Phase E - First connection and handoff
-
 ## 17. SSH to the new VM
 
-From PowerShell, replace the IP with the reserved address recorded earlier:
+From your workstation terminal, replace the IP with the reserved address recorded earlier:
 
-```powershell
+```bash
 ssh -i "$HOME/.ssh/athenaeum-oracle" ubuntu@REPLACE_VM_IP
 ```
 
@@ -592,15 +569,15 @@ If SSH times out, check in this order:
 
 ---
 
-# Final Oracle-side checklist
+## Infrastructure checkpoint
 
 Before moving on to disk formatting and host setup, confirm all of the following.
 
-## Compartment
+### Compartment
 
 - [ ] `Athenaeum`
 
-## Networking
+### Networking
 
 - [ ] `athenaeum-vcn` - `10.20.0.0/16`
 - [ ] `athenaeum-igw` - enabled
@@ -612,7 +589,7 @@ Before moving on to disk formatting and host setup, confirm all of the following
 - [ ] Egress all protocols to `0.0.0.0/0`
 - [ ] `athenaeum-public` - regional public subnet, `10.20.1.0/24`
 
-## Compute
+### Compute
 
 - [ ] `athenaeum-arm`
 - [ ] `VM.Standard.A1.Flex`
@@ -621,14 +598,14 @@ Before moving on to disk formatting and host setup, confirm all of the following
 - [ ] 50 GB boot volume
 - [ ] Dedicated Athenaeum SSH public key installed
 
-## Public IP
+### Public IP
 
 - [ ] `athenaeum-public-ip`
 - [ ] Reserved public IPv4
 - [ ] Assigned to the VM's **primary private IP**
 - [ ] Address recorded in private notes
 
-## Persistent storage
+### Persistent storage
 
 - [ ] `athenaeum-data`
 - [ ] Same availability domain as VM
@@ -637,7 +614,7 @@ Before moving on to disk formatting and host setup, confirm all of the following
 - [ ] Paravirtualized, read/write attachment
 - [ ] Status `Attached`
 
-## Backups and IAM
+### Backups and IAM
 
 - [ ] `athenaeum-backups` - private Standard bucket
 - [ ] Versioning disabled
@@ -648,24 +625,11 @@ Before moving on to disk formatting and host setup, confirm all of the following
 
 ---
 
-# What comes next
+## Continue with host setup
 
-The next phase is Linux-side host preparation:
+Proceed to [Guide 2 — Host setup](2-host-setup.md) to identify/mount the data disk, configure Ubuntu and Docker, install the command center, start the containers and prove backups. The tools use the OCI Python SDK with instance-principal authentication; a separate OCI CLI installation is not required.
 
-1. Confirm `aarch64` and inventory disks with `lsblk`.
-2. Identify the new blank data disk using its size and OCI attachment information.
-3. Format it as ext4 **only after verifying it is the new empty disk**.
-4. Mount it at `/srv/athenaeum` by filesystem UUID.
-5. Reboot and confirm the mount persists.
-6. Install Docker Engine and Compose.
-7. Add the Docker mount guard so Docker refuses to start without `/srv/athenaeum` mounted.
-8. Install OCI CLI using instance-principal authentication.
-9. Test upload/download access to `athenaeum-backups`.
-10. Only after the host is ready, deploy the application stack and point Cloudflare DNS at the reserved public IPv4.
-
----
-
-# OCI reference links
+## OCI reference links
 
 - Always Free resources: https://docs.oracle.com/en-us/iaas/Content/FreeTier/freetier_topic-Always_Free_Resources.htm
 - Compartments: https://docs.oracle.com/en-us/iaas/Content/Identity/Tasks/managingcompartments.htm
@@ -681,7 +645,3 @@ The next phase is Linux-side host preparation:
 - Dynamic-group rules: https://docs.oracle.com/en-us/iaas/Content/Identity/dynamicgroups/Writing_Matching_Rules_to_Define_Dynamic_Groups.htm
 - Instance principals: https://docs.oracle.com/en-us/iaas/Content/Identity/Tasks/callingservicesfrominstances.htm
 - IAM policy syntax: https://docs.oracle.com/en-us/iaas/Content/Identity/Concepts/policysyntax.htm
-
----
-
-**Athenaeum / Oracle GUI Provisioning Guide - Operator edition - 8 September 2026**
