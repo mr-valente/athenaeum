@@ -1,0 +1,20 @@
+provider:
+  name: docker
+  auto-stop-on-startup: false
+  auto-warm-externally-started: true
+  reject-unlabeled-requests: true
+  verify-enabled-on-expiration: true
+  docker:
+    strategy: stop
+server:
+  port: 10000
+sessions:
+  default-duration: 12h
+strategy:
+  dynamic:
+    custom-themes-path: /etc/sablier/themes
+    default-theme: athenaeum
+    show-details-by-default: false
+    default-refresh-frequency: 5s
+  blocking:
+    default-timeout: 1m

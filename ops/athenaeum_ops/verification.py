@@ -2,7 +2,7 @@
 import urllib.request
 from urllib.error import HTTPError
 from urllib.parse import urljoin
-from .common import APPS, SERVICES, preflight, validate_compose, compose, run, Failure
+from .common import APPS, preflight, validate_compose, compose, containers_healthy, run, Failure
 from .cli import stack_status
 
 
@@ -16,9 +16,9 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
         return None
 
 
-def probe(opener, url, status, location=None):
+def probe(opener, url, status, location=None, timeout=20):
     try:
-        response = opener.open(url, timeout=20)
+        response = opener.open(url, timeout=timeout)
     except HTTPError as error:
         response = error
     with response:
@@ -32,18 +32,21 @@ def verify(cfg):
     preflight(cfg)
     model = validate_compose(cfg)
     status = stack_status(cfg)
-    if {c['Service'] for c in status['containers']} != set(SERVICES) or any(
-            c.get('State') != 'running' or c.get('Health') != 'healthy' for c in status['containers']):
-        raise Failure(f'Expected {len(SERVICES)} running healthy containers; run stack update or inspect logs.')
+    if not containers_healthy(status['containers']):
+        raise Failure('Expected healthy infrastructure and healthy or cleanly stopped apps; inspect logs.')
     domain = model['services']['edge']['environment']['SITE_DOMAIN']
     origin = 'https://' + domain
     opener = urllib.request.build_opener(NoRedirect)
     probe(opener, origin + '/', 200)
     probe(opener, 'https://www.' + domain + '/', 308, origin + '/')
+    say('Checking app routes wakes sleeping apps and renews their idle sessions.')
     for app in APPS.values():
         prefix = origin + app['root_path']
-        probe(opener, prefix + '/', 200)
+        probe(opener, prefix + '/', 200, timeout=70)
         probe(opener, prefix + '?source=setup', 308, prefix + '/?source=setup')
+        probe(opener, prefix + '/_health', 404)
+    if not containers_healthy(stack_status(cfg)['containers'], allow_sleeping=False):
+        raise Failure('Apps did not become healthy after their wake-up probes; inspect logs.')
     # First prove wget itself works in the right container. A missing command or
     # container must never be mistaken for successful metadata isolation.
     edge = compose(cfg, 'ps', '--quiet', 'edge').decode().strip()

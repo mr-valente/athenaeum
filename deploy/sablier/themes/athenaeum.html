@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex, nofollow">
+    <meta http-equiv="refresh" content="{{ .RefreshFrequency }}">
+    <meta name="theme-color" content="#101516">
+    <title>{{ .DisplayName }} / Opening the library — Athenaeum</title>
+    <style>
+      :root { color-scheme: dark; }
+      * { box-sizing: border-box; }
+      body { margin: 0; min-height: 100svh; display: flex; flex-direction: column; background: #101516; color: #e7e9e1; font: 1rem/1.8 'CaskaydiaCove Nerd Font', ui-monospace, monospace; }
+      a { color: #a6dfb5; text-underline-offset: .25em; }
+      a:hover { color: #e7e9e1; }
+      :focus-visible { outline: 2px solid #e7c589; outline-offset: 5px; }
+      header, main, footer { width: min(100% - 4rem, 64rem); margin-inline: auto; }
+      header { padding-block: 2rem; border-bottom: 1px solid #303c3b; }
+      .brand { display: inline-flex; gap: .8rem; align-items: center; color: #e7e9e1; font-size: .875rem; font-weight: 700; text-decoration: none; }
+      .brand img { width: 2rem; height: 2rem; }
+      main { flex: 1; padding-block: clamp(3rem, 10vh, 7rem); }
+      .mark { display: grid; place-items: center; width: 9rem; height: 9rem; margin-bottom: 2.5rem; background-image: radial-gradient(#303c3b 1px, transparent 1px); background-size: 12px 12px; }
+      .mark img { width: 6rem; height: 6rem; }
+      .eyebrow, footer { color: #a1ada8; font-size: .8125rem; }
+      .eyebrow { margin-bottom: 1rem; }
+      h1 { max-width: 22ch; margin: 0 0 1.5rem; font-size: clamp(2rem, 5vw, 3.25rem); line-height: 1.15; letter-spacing: -.06em; overflow-wrap: anywhere; }
+      p { max-width: 64ch; }
+      .status { display: flex; align-items: baseline; gap: .8rem; margin-block: 2rem; padding: 1rem 1.25rem; border: 1px solid #303c3b; border-radius: 4px; background: #171e20; width: fit-content; }
+      .status::before { content: '■'; color: #a6dfb5; font-size: .7rem; }
+      .note { color: #a1ada8; font-size: .875rem; }
+      footer { border-top: 1px solid #303c3b; padding-block: 1.5rem; }
+      @media (max-width: 640px) { header, main, footer { width: calc(100% - 2rem); } header { padding-block: 1.25rem; } }
+    </style>
+  </head>
+  <body>
+    <header>
+      <a class="brand" href="/"><img src="assets/mark.svg" alt="" width="32" height="32">Athenaeum</a>
+    </header>
+    <main id="main">
+      <div class="mark" aria-hidden="true"><img src="assets/mark.svg" alt="" width="96" height="96"></div>
+      <p class="eyebrow">APPLICATION / WAKING UP</p>
+      <h1>Opening {{ .DisplayName }}.</h1>
+      <p>A quiet moment while we turn on the lights. This application rests between visits; your work stays on the shelf.</p>
+      <div class="status" role="status">Waiting for the application to be ready.</div>
+      <p class="note">This page checks again automatically. Once ready, the application stays awake for {{ .SessionDuration }} after its last request.</p>
+      <p><a href="">Check again</a> <span aria-hidden="true">/</span> <a href="/">Back to Athenaeum</a></p>
+    </main>
+    <footer>After hours. The library is still open.</footer>
+  </body>
+</html>

@@ -7,6 +7,8 @@
 	https_port 8443
 }
 
+import /etc/caddy/apps.caddy
+
 {$SITE_DOMAIN} {
 	import /etc/caddy/routes.caddy
 }

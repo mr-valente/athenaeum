@@ -9,7 +9,7 @@ import tempfile
 import time
 
 from .archive import applications
-from .common import SERVICES, Failure, atomic_json, compose, guard_mount, load_config, operation_lock, preflight, validate_compose, run
+from .common import APPS, SERVICES, Failure, atomic_json, compose, containers_healthy, guard_mount, load_config, operation_lock, preflight, validate_compose, run
 from .recovery import backup, cleanup_staging, export_snapshot, load_commits, restore
 from .runtime import select_images, test_runtime
 from .storage import open_store
@@ -55,7 +55,10 @@ def print_status(result):
     containers = {c['Service']: c for c in result['stack']['containers']}
     for name in SERVICES:
         c = containers.get(name, {})
-        print(f"{name}: {c.get('State', 'missing')} / {c.get('Health', 'unknown')}")
+        if name in APPS and c.get('State') == 'exited' and c.get('ExitCode') == 0:
+            print(f'{name}: stopped cleanly (idle or manually stopped; wakes on request)')
+        else:
+            print(f"{name}: {c.get('State', 'missing')} / {c.get('Health', 'unknown')}")
     for error in (result['stack'].get('error'), result.get('last_attempt', {}).get('error')):
         if error:
             print('ERROR: ' + error)
@@ -154,8 +157,7 @@ def main():
                     else:
                         print_status(result)
                     stack = result['stack']
-                    unhealthy = {c.get('Service') for c in stack['containers']} != set(SERVICES) or any(
-                        c.get('State') != 'running' or c.get('Health') != 'healthy' for c in stack['containers'])
+                    unhealthy = not containers_healthy(stack['containers'])
                     return int(bool(result['backup_stale'] or 'error' in result['storage']
                                     or result.get('last_attempt', {}).get('status') != 'ok'
                                     or 'error' in stack or unhealthy))

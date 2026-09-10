@@ -1,38 +1,8 @@
 header X-Content-Type-Options nosniff
 header Referrer-Policy strict-origin-when-cross-origin
 
-# Append the slash before the untouched query string; match only this slug.
-@quack_root path /quacktuaries
-handle @quack_root {
-	route {
-		uri replace /quacktuaries /quacktuaries/ 1
-		redir {uri} 308
-	}
-}
-handle_path /quacktuaries/* {
-	# Readiness is internal; do not expose the app's probe as public content.
-	@health path /_health
-	respond @health 404
-	reverse_proxy quacktuaries:8000 {
-		header_up -Forwarded
-		header_up -X-Forwarded-Prefix
-	}
-}
-@bernoulli_root path /bernoulli
-handle @bernoulli_root {
-	route {
-		uri replace /bernoulli /bernoulli/ 1
-		redir {uri} 308
-	}
-}
-handle_path /bernoulli/* {
-	@bernoulli_health path /_health
-	respond @bernoulli_health 404
-	reverse_proxy bernoulli:8000 {
-		header_up -Forwarded
-		header_up -X-Forwarded-Prefix
-	}
-}
+import app /quacktuaries quacktuaries Quacktuaries
+import app /bernoulli bernoulli Bernoulli
 handle {
 	reverse_proxy athenaeum:8080
 }

@@ -1,5 +1,7 @@
 # Local ecosystem
 
+This stack includes Sablier and uses the same separate app groups and 12-hour idle policy as production. Use a Docker daemon that is not already managed by another Sablier instance: lifecycle discovery is daemon-wide even though groups are project-qualified. See [on-demand applications](../reference/sablier.md) for cold-start checks and the disposable smoke test.
+
 Run from the Athenaeum checkout, with the Quacktuaries and Bernoulli checkouts beside it. Requires Docker Engine, Compose 2.24.4+ (for the local port override), and Python 3.
 
 ```bash
@@ -44,7 +46,7 @@ All services use non-root processes, read-only root filesystems, restricted capa
 
 Caddy redirects `/quacktuaries` to `/quacktuaries/` and `/bernoulli` to `/bernoulli/`, preserves queries, and strips the prefix upstream. App links, forms, assets, and redirects include the public prefix. Cookies have a unique name, app path, and production security flags. All apps on the domain still share one browser origin.
 
-Bind mounts require existing directories. Production also uses the filesystem UUID guard; a directory's existence alone does not prove that the block disk mounted. See [recovery](../guides/4-backup-and-recovery.md).
+Bind mounts require existing directories. Production also uses the filesystem UUID guard; a directory's existence alone does not prove that the block disk mounted. See [recovery](../guides/5-backup-and-recovery.md).
 
 ## Automated checks
 
@@ -53,7 +55,7 @@ ops/local-stack up --build --wait
 ops/local-stack ps
 ```
 
-This builds native development images and waits for container health checks. Run host recovery tests as described in [recovery](../guides/4-backup-and-recovery.md), and use the browser workflow below to verify routing and classroom behavior. Production ARM64 builds and Docker Hub publication are described in [manual delivery](image-builds.md).
+This builds native development images and waits for container health checks. Run host recovery tests as described in [recovery](../guides/5-backup-and-recovery.md), and use the browser workflow below to verify routing and classroom behavior. Production ARM64 builds and Docker Hub publication are described in [manual delivery](image-builds.md).
 
 Browser checks use `tests/browser/` and create synthetic data only:
 

@@ -12,13 +12,25 @@ Locate the Athenaeum checkout from the prompt or sibling `athenaeum/`. Read its 
 Choose the framework that fits the app and keep it independently deployable. Add:
 
 - A service in `compose.yaml` on the private `apps` network, without a published host port. Use Docker service names and assigned addresses. Add a native development build to `compose.local.yaml` when useful.
-- Caddy's `/<slug>` slash redirect and `handle_path /<slug>/*` route. Caddy strips the prefix upstream; the app must generate prefixed links, forms, redirects, assets and API URLs. Reserve the path in `deploy/reserved-paths.json`.
+- An `import app /<slug> <service> <DisplayName>` entry in `deploy/caddy/routes.caddy`, using the shared snippet in `apps.caddy` (currently port 8000; parameterize it if another app needs a different port). It preserves slash-redirect queries, hides `/_health`, wakes only this app, then strips the prefix upstream. The app must generate prefixed links, forms, redirects, assets and API URLs. Reserve the path in `deploy/reserved-paths.json`.
 - A Markdown page in `content/projects/`, the editorial project catalog.
 - Explicit non-root ownership, health checks, resource/log limits, read-only root filesystem where supported, and graceful shutdown.
 
 Give browser cookies unique names, the app's path, and production security flags. Same-domain paths share a browser origin, and owned apps are trusted network peers. Apps serving untrusted executable content need a separate origin/boundary. Ordinary apps receive neither Docker nor OCI credentials.
 
-Apply the current shared CSS contract from `design/` and the decisions in `style.md`. Its visual specification remains provisional; do not copy Quacktuaries' appearance or invent a final theme. Bundle a pinned copy of shared assets in each consumer rather than fetching mutable styles at runtime.
+Apply the current shared CSS contract from `design/` and the decisions in `style.md`: the After hours theme. Bundle a pinned copy of shared assets in each consumer rather than fetching mutable styles at runtime.
+
+## Give each app its own idle lifecycle
+
+Add `sablier.enable: 'true'` and `sablier.group: ${COMPOSE_PROJECT_NAME:-athenaeum}-<service>` to the hosted Compose service. Never label the main `athenaeum` website, `edge`, or `sablier`. Never share a group between independent apps. Caddy's `SABLIER_GROUP_PREFIX` must match Compose's project prefix. Keep standalone images free of Athenaeum-specific lifecycle policy.
+
+Use `deploy/sablier/sablier.yaml` as the common policy: a sliding 12h idle session, Docker stop strategy, no destructive startup stop, and automatic adoption of externally started apps (also the self-heal for a Sablier 1.18.0 store race that can leave an idle app running; keep it on). Do not override session duration in individual routes without a requirement. Compose deployment starts apps normally; they sleep after inactivity. HTTP polling renews the session; a background job or an idle open WebSocket does not. Identify workloads that must keep running before opting them in.
+
+Preserve explicit Caddy `route` ordering: deny the private health endpoint before Sablier, run Sablier before prefix stripping and proxying. Only HTML GETs receive the dynamic loading page. POSTs, APIs and assets use the blocking strategy so their request bodies survive a cold start and HTML is not substituted for JSON or CSS. Keep real Docker readiness healthchecks; do not mark apps ready merely because their process started.
+
+Reuse `deploy/sablier/themes/athenaeum.html`, including Go template refresh/session values and the bundled `design/mark.svg`. Keep the loading page usable without app assets, scripts, external services or motion. Sablier's API belongs only on the private `control` network with Caddy; apps must not join that network or receive the Docker socket. Run only one Sablier lifecycle manager per Docker daemon: groups separate requests, not provider-wide discovery.
+
+Verify each group independently: cold HTML navigation, cold POST/API forwarding, prefix/query preservation, hidden probes not waking apps, idle shutdown, a second app remaining asleep, and the main website remaining available. `status` must accept cleanly stopped registered apps but reject crashes/missing services; `verify` deliberately wakes apps and requires readiness afterward. See `docs/reference/sablier.md` for the policy and local smoke test.
 
 ## Own the image and release
 
@@ -42,7 +54,7 @@ The standalone image works at the root path and is the default Dockerfile target
 
 Put persistent data under `/srv/athenaeum/apps/<slug>/`, mounted at `/data` or the app's documented equivalent. Preserve the exact-UUID disk guard and refusal to create missing bind directories. A stateless app declares Git/image rebuilding as its recovery method.
 
-For stateful apps, read `docs/guides/4-backup-and-recovery.md` and implement a consistent snapshot and isolated restore. Use SQLite's backup API or the database's own export, never a copy of a live database file. Register uploads and required keys too.
+For stateful apps, read `docs/guides/5-backup-and-recovery.md` and implement a consistent snapshot and isolated restore. Use SQLite's backup API or the database's own export, never a copy of a live database file. Register uploads and required keys too.
 
 The host code registers stateful SQLite apps in `ops/athenaeum_ops/common.py` (`APPS`): a config key for the app's signing-key path (with a `/etc/athenaeum/<slug>-session-secret` default), its public prefix and its required tables. Service lists, preflight, Compose validation (`<slug>_session` secret, `apps/<slug>/data` mount), snapshot manifests, restore validation, installer key/directory creation and the HTTPS verification probes all derive from that entry. Add a per-app restore-test probe to `runtime.py`, the key/directory names to `ops/local-stack`, `<SLUG>_IMAGE`/`<SLUG>_SECRET_FILE` to `deploy/production.env.example`, and cover the app in the tests (recovery fixtures, installer, local stack, runbook, browser check). Quacktuaries and Bernoulli are the two examples. An app that is not SQLite-backed needs its own hook, manifest entry and restore path. Do not bypass the existing fail-closed checks: merely creating a new app data directory is insufficient and stops the current backup.
 

@@ -1,7 +1,12 @@
 FROM caddy:2.11.4-alpine@sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648 AS upstream
-FROM --platform=$BUILDPLATFORM alpine:3.23@sha256:fd791d74b68913cbb027c6546007b3f0d3bc45125f797758156952bc2d6daf40 AS binary
-# Native cp drops the upstream low-port capability without executing target code.
-RUN --mount=from=upstream,source=/usr/bin/caddy,target=/tmp/caddy cp /tmp/caddy /caddy
+FROM --platform=$BUILDPLATFORM caddy:2.11.4-builder@sha256:403d237d0bb16d2e62b1f93ca9ebb4953ecbb78aee5986765713a39f9263a5b4 AS binary
+ARG TARGETOS
+ARG TARGETARCH
+ARG TARGETVARIANT
+RUN GOOS=$TARGETOS GOARCH=$TARGETARCH GOARM=${TARGETVARIANT#v} CGO_ENABLED=0 \
+    xcaddy build v2.11.4 --output /tmp/caddy \
+    --with github.com/sablierapp/sablier-caddy-plugin@v1.0.2 \
+    && cp /tmp/caddy /caddy
 FROM alpine:3.23@sha256:fd791d74b68913cbb027c6546007b3f0d3bc45125f797758156952bc2d6daf40
 COPY --from=binary /caddy /usr/local/bin/caddy
 COPY --from=upstream /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt

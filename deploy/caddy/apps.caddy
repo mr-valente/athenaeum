@@ -1,0 +1,41 @@
+(app) {
+	@root_{args[1]} path {args[0]}
+	handle @root_{args[1]} {
+		route {
+			uri replace {args[0]} {args[0]}/ 1
+			redir {uri} 308
+		}
+	}
+	handle {args[0]}/* {
+		route {
+			respond {args[0]}/_health 404
+			@document_{args[1]} {
+				method GET
+				header Accept *text/html*
+			}
+			@background_{args[1]} {
+				not {
+					method GET
+					header Accept *text/html*
+				}
+			}
+			sablier @document_{args[1]} http://sablier:10000 {
+				group {$SABLIER_GROUP_PREFIX:athenaeum}-{args[1]}
+				dynamic {
+					display_name {args[2]}
+				}
+			}
+			sablier @background_{args[1]} http://sablier:10000 {
+				group {$SABLIER_GROUP_PREFIX:athenaeum}-{args[1]}
+				blocking {
+					timeout 1m
+				}
+			}
+			uri strip_prefix {args[0]}
+			reverse_proxy {args[1]}:8000 {
+				header_up -Forwarded
+				header_up -X-Forwarded-Prefix
+			}
+		}
+	}
+}

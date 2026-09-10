@@ -20,10 +20,13 @@ Oracle Object Storage ← encrypted, verified database/key/config snapshots
 | `athenaeum` | `valentemath/athenaeum:latest` | HTTP 8080 | None; rebuild from Git |
 | `quacktuaries` | `valentemath/quacktuaries:latest-athenaeum` | HTTP 8000 | `/srv/athenaeum/apps/quacktuaries/data/app.db` and persistent signing key |
 | `bernoulli` | `valentemath/bernoulli:latest-athenaeum` | HTTP 8000 | `/srv/athenaeum/apps/bernoulli/data/app.db` and persistent signing key |
+| `sablier` | `sablierapp/sablier:1.18.0` | Private control HTTP 10000 | None; config/theme in Git, idle timers in memory |
 
-Only Caddy publishes host ports 80/443. All four containers run as UID/GID 10001, with read-only root filesystems, bounded logs/memory, health checks, and dropped capabilities. Release builds target ARM64. Native development images use the workstation architecture.
+Only Caddy publishes host ports 80/443. The website, edge and apps run as UID/GID 10001, with read-only root filesystems, bounded logs/memory, health checks, and dropped capabilities. Sablier is a fifth infrastructure service (`sablierapp/sablier:1.18.0`), running as root with the Docker socket and otherwise the same runtime restrictions. Release builds target ARM64. Native development images use the workstation architecture.
 
 The private `apps` network connects trusted owned applications; Docker supplies names and addresses. Caddy also joins the outbound network. Apps receive neither a Docker socket nor OCI credentials. The host firewall denies container access to Oracle metadata; the host's instance principal authenticates backup storage requests.
+
+Caddy and Sablier additionally share the private `control` network; apps cannot reach Sablier's privileged API. Each hosted app has its own Sablier group and sleeps after 12 hours without requests. The website is never managed by Sablier. See [on-demand applications](sablier.md) for loading-page routing, security, session behavior and verification.
 
 Caddy redirects `www` to the apex, preserves queries on each app's slash redirect (`/quacktuaries`, `/bernoulli`), and strips the prefix upstream. Each app generates prefixed links, forms, assets and redirects, and hides its `/_health` probe from the public route. Cookies are per app (`quacktuaries_session`, `bernoulli_session`): host-only, scoped to the app's prefix, HttpOnly, SameSite=Lax, and Secure in production. Same-domain apps share a browser origin.
 
@@ -49,7 +52,7 @@ Caddy redirects `www` to the apex, preserves queries on each app's slash redirec
 
 `repo sync` validates and fast-forwards a clean checkout; it does not change containers or installed tools. `self update` refreshes installed host tools without restarting Docker. `docker pull --deploy` holds the shared lock across a verified backup, image pull and replacement. Image rollback leaves the database unchanged; schema changes need a recovery plan.
 
-The UUID guard prevents Docker from starting against a missing data disk. Bind mounts refuse missing source directories. Both apps use SQLite; their databases are captured with SQLite's online backup API and, with their signing keys, settings, and image metadata, form one recovery point. Certificates are reissued on a replacement host. See [backups and restores](../guides/4-backup-and-recovery.md).
+The UUID guard prevents Docker from starting against a missing data disk. Bind mounts refuse missing source directories. Both apps use SQLite; their databases are captured with SQLite's online backup API and, with their signing keys, settings, and image metadata, form one recovery point. Certificates are reissued on a replacement host. See [backups and restores](../guides/5-backup-and-recovery.md).
 
 ## Adding an application
 

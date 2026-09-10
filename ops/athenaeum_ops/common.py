@@ -73,7 +73,18 @@ APPS = {
     'bernoulli': {'secret': 'bernoulli_session_secret', 'root_path': '/bernoulli',
                   'tables': {'teachers', 'sessions', 'players', 'flip_flop_rounds', 'flip_flop_votes'}},
 }
-SERVICES = ('edge', 'athenaeum', *APPS)
+SERVICES = ('edge', 'athenaeum', 'sablier', *APPS)
+
+
+def containers_healthy(containers, allow_sleeping=True):
+    if len(containers) != len(SERVICES) or {item.get('Service') for item in containers} != set(SERVICES):
+        return False
+    return all(
+        (item.get('State') == 'running' and item.get('Health') == 'healthy')
+        or (allow_sleeping and item.get('Service') in APPS
+            and item.get('State') == 'exited' and item.get('ExitCode') == 0)
+        for item in containers
+    )
 
 
 def secret_path(cfg, app):

@@ -25,6 +25,7 @@ services:
     environment:
       SITE_DOMAIN: ${SITE_DOMAIN:-valentemath.com}
       ACME_EMAIL: ${ACME_EMAIL:?Set the ACME contact email}
+      SABLIER_GROUP_PREFIX: ${COMPOSE_PROJECT_NAME:-athenaeum}
     volumes:
       - type: bind
         source: ${DATA_ROOT:-/srv/athenaeum}/edge/data
@@ -34,7 +35,41 @@ services:
         source: ${DATA_ROOT:-/srv/athenaeum}/edge/config
         target: /config
         bind: {create_host_path: false}
-    networks: [default, apps]
+    networks: [default, apps, control]
+
+  sablier:
+    <<: *runtime
+    image: sablierapp/sablier:1.18.0
+    mem_limit: 128m
+    command: [start, --configFile=/etc/sablier/sablier.yaml]
+    volumes:
+      - type: bind
+        source: /var/run/docker.sock
+        target: /var/run/docker.sock
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: ./deploy/sablier/sablier.yaml
+        target: /etc/sablier/sablier.yaml
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: ./deploy/sablier/themes
+        target: /etc/sablier/themes
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: ./design
+        target: /etc/sablier/themes/assets
+        read_only: true
+        bind: {create_host_path: false}
+    healthcheck:
+      test: [CMD, /bin/sablier, health]
+      interval: 15s
+      timeout: 3s
+      start_period: 5s
+      retries: 3
+    networks: [control]
 
   athenaeum:
     <<: *runtime
@@ -44,6 +79,9 @@ services:
 
   quacktuaries:
     <<: *runtime
+    labels:
+      sablier.enable: 'true'
+      sablier.group: ${COMPOSE_PROJECT_NAME:-athenaeum}-quacktuaries
     image: ${QUACKTUARIES_IMAGE:-valentemath/quacktuaries:latest-athenaeum}
     user: ${RUNTIME_UID:-10001}:${RUNTIME_GID:-10001}
     mem_limit: 1g
@@ -67,6 +105,9 @@ services:
 
   bernoulli:
     <<: *runtime
+    labels:
+      sablier.enable: 'true'
+      sablier.group: ${COMPOSE_PROJECT_NAME:-athenaeum}-bernoulli
     image: ${BERNOULLI_IMAGE:-valentemath/bernoulli:latest-athenaeum}
     user: ${RUNTIME_UID:-10001}:${RUNTIME_GID:-10001}
     mem_limit: 1g
@@ -89,6 +130,8 @@ services:
     networks: [apps]
 
 networks:
+  control:
+    internal: true
   apps:
     internal: true
 

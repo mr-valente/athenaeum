@@ -17,9 +17,11 @@ Guides 1 and 2 describe a fresh installation or a replacement after a disaster. 
 - [Site development](development/site-development.md) — pinned Node toolchain, source layout, and tests.
 - [Local stack](development/local-stack.md) — HTTPS and classroom workflow testing with disposable local data.
 - [Image builds](development/image-builds.md) — independent Fish builder entries, Docker Hub tags, and release checks.
+- [Sablier lost-expiry bug](development/sablier-bug-report.md) — upstream bug report to file, and the checklist for retiring the workaround after the fix.
 - [App-creation skill](../skills/athenaeum-app/SKILL.md) — integrate another independently deployable application.
 - [Shared style](../style.md) — visual direction and decisions; [CSS contract](../design/README.md) describes the current implementation.
 
 ## Reference
 
 - [Architecture and application contracts](reference/architecture.md) — services, networking, files, and integration requirements.
+- [On-demand applications](reference/sablier.md) — separate Sablier groups, 12-hour idle sessions, loading theme and verification.
