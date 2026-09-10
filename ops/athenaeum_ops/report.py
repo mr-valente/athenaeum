@@ -20,7 +20,7 @@ from pathlib import Path
 import socket
 import time
 
-from .common import SERVICES, Failure, container_ok, containers_healthy, directory
+from .common import SERVICES, Failure, container_issues, container_ok, containers_healthy, directory
 from .storage import open_store
 
 SCHEMA = 1
@@ -81,14 +81,20 @@ def container_states(cfg):
     if operation_in_progress(cfg):
         return {'busy': True, 'services': None, 'ok': None}
     stack = stack_status(cfg)
-    containers = stack['containers']
-    # `ok` per service applies the same rule as status: an app that exited cleanly is asleep, not down.
-    services = [{'service': c.get('Service'), 'state': c.get('State'), 'health': c.get('Health') or None,
-                 'exit_code': c.get('ExitCode'), 'ok': container_ok(c)} for c in containers if c.get('Service') in SERVICES]
-    result = {'busy': False, 'services': services, 'ok': containers_healthy(containers)}
     if 'error' in stack:
-        result.update(error=stack['error'], ok=None)
-    return result
+        return {'busy': False, 'services': None, 'ok': None, 'error': stack['error']}
+    containers = stack['containers']
+    issues = dict(container_issues(containers))
+    # `ok` per service applies the same rule as status: an app that exited cleanly is
+    # asleep, not down. Every container in the project is listed, so a stray or a
+    # duplicate is named rather than folded into the overall verdict.
+    services = [{'service': c.get('Service'), 'name': c.get('Name'), 'state': c.get('State'),
+                 'health': c.get('Health') or None, 'exit_code': c.get('ExitCode'),
+                 'issue': issues.get(c.get('Service')), 'ok': container_ok(c) and c.get('Service') not in issues}
+                for c in containers]
+    services += [{'service': name, 'name': None, 'state': None, 'health': None, 'exit_code': None, 'issue': 'missing', 'ok': False}
+                 for name in SERVICES if issues.get(name) == 'missing']
+    return {'busy': False, 'services': services, 'ok': containers_healthy(containers)}
 
 
 def build_report(cfg, now=None):

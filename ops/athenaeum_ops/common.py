@@ -82,8 +82,19 @@ def container_ok(item, allow_sleeping=True):
                 and item.get('State') == 'exited' and item.get('ExitCode') == 0))
 
 
+def container_issues(containers):
+    """What is wrong with the container set itself: {(service, issue)} for missing, duplicate and unregistered."""
+    counts = {}
+    for item in containers:
+        counts[item.get('Service')] = counts.get(item.get('Service'), 0) + 1
+    issues = {(name, 'missing') for name in SERVICES if name not in counts}
+    issues |= {(name, 'duplicate') for name, count in counts.items() if name in SERVICES and count > 1}
+    issues |= {(name, 'unregistered') for name in counts if name not in SERVICES}
+    return issues
+
+
 def containers_healthy(containers, allow_sleeping=True):
-    if len(containers) != len(SERVICES) or {item.get('Service') for item in containers} != set(SERVICES):
+    if container_issues(containers):
         return False
     return all(container_ok(item, allow_sleeping) for item in containers)
 

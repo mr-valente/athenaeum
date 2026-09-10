@@ -9,7 +9,7 @@ import tempfile
 import time
 
 from .archive import applications
-from .common import APPS, SERVICES, Failure, atomic_json, compose, containers_healthy, guard_mount, load_config, operation_lock, preflight, validate_compose, run
+from .common import APPS, SERVICES, Failure, atomic_json, compose, container_issues, containers_healthy, guard_mount, load_config, operation_lock, preflight, validate_compose, run
 from .recovery import backup, cleanup_staging, export_snapshot, load_commits, restore
 from .report import build_report, publish_report
 from .runtime import select_images, test_runtime
@@ -60,6 +60,9 @@ def print_status(result):
             print(f'{name}: stopped cleanly (idle or manually stopped; wakes on request)')
         else:
             print(f"{name}: {c.get('State', 'missing')} / {c.get('Health', 'unknown')}")
+    issues = sorted(container_issues(result['stack']['containers']))
+    if issues and not result['stack'].get('error'):
+        print('ERROR: unexpected container set: ' + ', '.join(f'{service} {issue}' for service, issue in issues))
     for error in (result['stack'].get('error'), result.get('last_attempt', {}).get('error')):
         if error:
             print('ERROR: ' + error)

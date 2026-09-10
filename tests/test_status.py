@@ -47,6 +47,24 @@ class StatusTests(unittest.TestCase):
                     self.assertEqual(result, 0 if case in ('healthy', 'sleeping') else 1)
                     self.assertIn('stack', json.loads(output.getvalue()))
 
+    def test_status_names_missing_duplicate_and_unregistered_containers(self):
+        containers = [{'Service': name, 'State': 'running', 'Health': 'healthy'} for name in cli.SERVICES]
+        containers.append({'Service': 'stray', 'State': 'exited', 'Health': ''})
+        containers.append(dict(containers[0]))
+        containers.pop(1)
+        with tempfile.TemporaryDirectory() as temp:
+            Path(temp, 'status.json').write_text(json.dumps({'last_backup': {'verified_at': time.time()}, 'last_attempt': {'status': 'ok'}}))
+            cfg = {'state_dir': temp, 'stale_after_seconds': 7200}
+            with patch.object(sys, 'argv', ['athenaeumctl', 'status']), \
+                 patch.object(cli, 'load_config', return_value=cfg), \
+                 patch.object(cli, 'operation_lock', return_value=nullcontext()), \
+                 patch.object(cli, 'preflight', return_value={'free_bytes': 10**10}), \
+                 patch.object(cli, 'compose', return_value=json.dumps(containers).encode()), \
+                 redirect_stdout(io.StringIO()) as output:
+                result = cli.main()
+        self.assertEqual(result, 1)
+        self.assertIn('ERROR: unexpected container set: athenaeum missing, edge duplicate, stray unregistered', output.getvalue())
+
     def test_verification_requires_awake_apps_and_rejects_ambiguous_states(self):
         containers = [{'Service': name, 'State': 'running', 'Health': 'healthy'} for name in cli.SERVICES]
         for container in containers:

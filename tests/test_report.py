@@ -80,22 +80,34 @@ class ReportTests(Fixture):
         self.assertIsNone(backup['last_attempt_error'])
         self.assertTrue(backup['verified_at'].endswith('Z') and backup['restore_test_at'].endswith('Z'))
         self.assertEqual([c['service'] for c in doc['containers']['services']], list(SERVICES))
-        self.assertEqual(doc['containers']['services'][-1], {'service': SERVICES[-1], 'state': 'exited', 'health': None, 'exit_code': 0, 'ok': True})
+        self.assertEqual(doc['containers']['services'][-1], {'service': SERVICES[-1], 'name': None, 'state': 'exited', 'health': None,
+                                                             'exit_code': 0, 'issue': None, 'ok': True})
         self.assertTrue(all(c['ok'] for c in doc['containers']['services']))
         self.assertTrue(doc['containers']['ok'])
         self.assertFalse(doc['containers']['busy'])
-        # Unregistered containers are left out of the list but, as for status, spoil `ok`.
-        with patch.object(cli, 'stack_status', return_value={'containers': containers + [{'Service': 'stray', 'State': 'running'}]}):
-            doc = report.build_report(self.cfg, now=now)
-        self.assertEqual(len(doc['containers']['services']), len(SERVICES))
+
+    def test_container_set_problems_are_named(self):
+        containers = healthy_containers()
+        containers.append({'Service': 'stray', 'Name': 'athenaeum-stray-1', 'State': 'running', 'Health': 'healthy'})
+        containers.append({**containers[0], 'Name': 'athenaeum-edge-2'})
+        edge = containers.pop(0)  # the first edge is now the duplicate; remove the original
+        containers.insert(0, edge)
+        athenaeum = next(c for c in containers if c['Service'] == 'athenaeum')
+        containers.remove(athenaeum)
+        with patch.object(cli, 'stack_status', return_value={'containers': containers}):
+            doc = report.build_report(self.cfg)
         self.assertFalse(doc['containers']['ok'])
+        flagged = sorted((c['service'], c['issue']) for c in doc['containers']['services'] if not c['ok'])
+        self.assertEqual(flagged, [('athenaeum', 'missing'), ('edge', 'duplicate'), ('edge', 'duplicate'), ('stray', 'unregistered')])
+        self.assertEqual(next(c for c in doc['containers']['services'] if c['service'] == 'stray')['name'], 'athenaeum-stray-1')
+        self.assertEqual(len(doc['containers']['services']), len(containers) + 1)
 
     def test_missing_status_and_docker_failure_are_reported_not_raised(self):
         with patch.object(cli, 'stack_status', return_value={'containers': [], 'error': 'Docker unavailable'}):
             doc = report.build_report(self.cfg)
         self.assertTrue(doc['backup']['stale'])
         self.assertIsNone(doc['backup']['verified_at'])
-        self.assertEqual(doc['containers'], {'busy': False, 'services': [], 'ok': None, 'error': 'Docker unavailable'})
+        self.assertEqual(doc['containers'], {'busy': False, 'services': None, 'ok': None, 'error': 'Docker unavailable'})
         atomic_json(self.root / 'state/status.json', {'last_attempt': {'at': 1, 'status': 'failed', 'error': 'Insufficient free space'}})
         containers = healthy_containers()
         containers[0].update(State='exited', ExitCode=0)  # the edge never sleeps
