@@ -66,4 +66,4 @@ Keep domain/email and image overrides in `/etc/athenaeum/compose.env`, backup se
 
 ## Routine care
 
-Use `athenaeumctl backup` for an extra verified snapshot and `athenaeumctl list` to inspect recovery points. Monthly, check disk space, Oracle usage, Ubuntu updates, and repeat the [recovery drill](4-backup-and-recovery.md#recovery-drill-and-offsite-copy). Keep published image versions needed by backups. [Guide 4](4-backup-and-recovery.md) covers backup failures, rollback, restoration and cleanup of temporary recovery files.
+Use `athenaeumctl backup` for an extra verified snapshot and `athenaeumctl list` to inspect recovery points. Monthly, check disk space, Oracle usage, Ubuntu updates, and repeat the [recovery drill](5-backup-and-recovery.md#recovery-drill-and-offsite-copy). Keep published image versions needed by backups. [Guide 5](5-backup-and-recovery.md) covers backup failures, rollback, restoration and cleanup of temporary recovery files.

@@ -4,7 +4,7 @@ A click-by-click Oracle Cloud Infrastructure (OCI) Console walkthrough for provi
 
 > **Scope:** This document covers Oracle-side provisioning and the first connection checkpoint. It intentionally stops before formatting the data disk, installing Docker, deploying Athenaeum, or changing Cloudflare DNS.
 
-Use this guide to provision an independent installation or replace lost infrastructure. For disaster recovery, first read [Guide 4](4-backup-and-recovery.md#disaster-recovery) and inventory surviving volumes, buckets, reserved addresses and keys. Reuse those resources where appropriate; replace only what was lost. A duplicate system needs distinct resource names, a domain, a volume, and its own backup bucket and identity.
+Use this guide to provision an independent installation or replace lost infrastructure. For disaster recovery, first read [Guide 5](5-backup-and-recovery.md#disaster-recovery) and inventory surviving volumes, buckets, reserved addresses and keys. Reuse those resources where appropriate; replace only what was lost. A duplicate system needs distinct resource names, a domain, a volume, and its own backup bucket and identity.
 
 ---
 

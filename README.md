@@ -18,9 +18,10 @@ Local builds → Docker Hub → manual deployment over SSH
 1. [Oracle infrastructure](docs/guides/1-oracle-infrastructure.md) — provision or recover cloud resources.
 2. [Host setup](docs/guides/2-host-setup.md) — prepare Ubuntu and start the stack.
 3. [Daily usage](docs/guides/3-daily-usage.md) — Git, images, logs and health checks.
-4. [Backup and recovery](docs/guides/4-backup-and-recovery.md) — recovery drills, offsite copies and disaster recovery.
+4. [Writing and arranging content](docs/guides/4-authoring.md) — edit pages, organize sections and lessons, and preview and publish Markdown.
+5. [Backup and recovery](docs/guides/5-backup-and-recovery.md) — recovery drills, offsite copies and disaster recovery.
 
-Use guides 1 and 2 for a fresh installation or replacement host, consulting guide 4 when restoring data. The [documentation index](docs/README.md) includes development and architecture references.
+Use guides 1 and 2 for a fresh installation or replacement host, consulting guide 5 when restoring data. The [documentation index](docs/README.md) includes development and architecture references.
 
 ## Daily operation
 
@@ -53,6 +54,6 @@ ops/local-stack up --build --wait
 
 Open the configured local HTTPS address; the default is `https://localhost:8443/`. See [local stack](docs/development/local-stack.md) for certificate trust and saved ports.
 
-Edit `content/` for pages, project links and classroom resources. Start with [Writing and arranging content](docs/development/authoring.md): edit the home page, organize sections and lessons, control ordering, add app links, and preview and publish your work. [Site development](docs/development/site-development.md) covers the toolchain and tests.
+Edit `content/` for pages, project links and classroom resources. Start with [Writing and arranging content](docs/guides/4-authoring.md): edit the home page, organize sections and lessons, control ordering, add app links, and preview and publish your work. [Site development](docs/development/site-development.md) covers the toolchain and tests.
 
 To add an app, use the [app-creation skill](skills/athenaeum-app/SKILL.md), [architecture contracts](docs/reference/architecture.md), and [shared style](style.md). Each app remains independently buildable and deployable.

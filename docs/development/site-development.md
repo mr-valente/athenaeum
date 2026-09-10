@@ -1,6 +1,6 @@
 # Local development
 
-The site uses directory-driven Markdown publishing and a stateless production container. Use the [local HTTPS stack](local-stack.md) to test application integration. For editorial work, see [writing content](authoring.md).
+The site uses directory-driven Markdown publishing and a stateless production container. Use the [local HTTPS stack](local-stack.md) to test application integration. For editorial work, see [writing content](../guides/4-authoring.md).
 
 ## Pinned toolchain
 
@@ -35,7 +35,7 @@ In an agent environment, Astro may automatically start dev/preview in the backgr
 
 ## What to edit
 
-- `content/`: all page text, project metadata, and referenced downloads. The [authoring guide](authoring.md) defines the supported format.
+- `content/`: all page text, project metadata, and referenced downloads. The [authoring guide](../guides/4-authoring.md) defines the supported format.
 - `src/lib/content.ts`: metadata validation, routes, drafts, Markdown rendering, and link/asset resolution.
 - `src/content.config.ts`: Astro content collection and development watcher.
 - `src/lib/assets.ts`: reference-only asset copying and development serving.

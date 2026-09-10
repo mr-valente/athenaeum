@@ -56,7 +56,7 @@ Welcome! Explore classroom activities and notes below.
 
 `title` labels the page in navigation and the browser tab. `# Valente Math` is the large heading visitors read. `description` supplies the summary when another page lists this one; it does not replace your opening paragraph. Usually, keep the title and heading the same.
 
-With the [local Node setup](site-development.md#pinned-toolchain) ready, run `npm run dev` in the repository and open the address it prints. Save your Markdown to see the update. Leave the server running while you write.
+With the [local Node setup](../development/site-development.md#pinned-toolchain) ready, run `npm run dev` in the repository and open the address it prints. Save your Markdown to see the update. Leave the server running while you write.
 
 ## Build a section, then put pages inside it
 
@@ -129,7 +129,7 @@ Write the lesson here.
 
 Run `npm run dev`. Set `draft: false` to preview the page at `/statistics/first-lesson/`. Run `npm run verify` before publishing. Development and production both exclude drafts; preview a draft by changing it locally, then restore `draft: true` if it should stay unpublished.
 
-Content changes require rebuilding and publishing the Athenaeum image, then deploying it manually. See [image builds](image-builds.md) and [daily usage](../guides/3-daily-usage.md).
+Content changes require rebuilding and publishing the Athenaeum image, then deploying it manually. See [image builds](../development/image-builds.md) and [daily usage](3-daily-usage.md).
 
 ## Paths and navigation
 
@@ -233,7 +233,7 @@ Use the browser's Print / Save as PDF command. Print styles use white paper and 
 
 1. Preview the page and click its links. If it is missing, check for `draft: true` on the page or any parent `index.md`.
 2. Run `npm run verify`. Read any error's filename first: it points to the content to fix.
-3. Commit your intended content changes. Build and publish the Athenaeum image, then deploy it using [daily usage](../guides/3-daily-usage.md). Saving Markdown or pushing Git alone does not update the live site.
+3. Commit your intended content changes. Build and publish the Athenaeum image, then deploy it using [daily usage](3-daily-usage.md). Saving Markdown or pushing Git alone does not update the live site.
 
 | What happened? | What to check |
 | --- | --- |
