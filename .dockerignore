@@ -9,6 +9,7 @@
 !design/
 !design/*.css
 !design/*.svg
+!design/octicons-LICENSE
 !design/fonts/
 !design/fonts/**
 !content/

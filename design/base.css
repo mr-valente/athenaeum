@@ -24,10 +24,12 @@ code, pre { font-family: var(--ath-font-code); }
 .ath-header { display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; padding-block: 2rem; border-bottom: 1px solid var(--ath-color-border); }
 .ath-brand { display: inline-flex; align-items: center; gap: 0.8rem; color: var(--ath-color-text); font-size: 0.875rem; font-weight: 700; text-decoration: none; }
 .ath-brand img { width: 38px; height: 38px; }
-.ath-header nav { display: flex; flex-wrap: wrap; gap: 0.5rem 1.75rem; }
+.ath-header nav { display: flex; align-items: center; flex-wrap: wrap; gap: 0.5rem 1.75rem; }
 .ath-header nav a { padding-block: 0.5rem; color: var(--ath-color-muted); font-size: 0.8125rem; text-decoration: none; }
 .ath-header nav a:hover, .ath-header nav a[aria-current] { color: var(--ath-color-link); }
 .ath-header nav a[aria-current] { text-decoration: underline; text-underline-offset: 0.6em; }
+.ath-github-icon { flex: none; vertical-align: middle; }
+.ath-header nav .ath-github-profile { display: inline-flex; align-items: center; justify-content: center; min-width: 32px; min-height: 32px; }
 .ath-page { flex: 1; padding-block: 3rem 5rem; overflow-wrap: anywhere; }
 .ath-page > article, .ath-page > .ath-prose { max-width: var(--ath-width-reading); margin-inline: auto; }
 .ath-page.ath-home > article { max-width: none; }
@@ -40,16 +42,15 @@ code, pre { font-family: var(--ath-font-code); }
 .ath-eyebrow { margin: 0 0 2rem; color: var(--ath-color-muted); font-size: 0.6875rem; letter-spacing: 0.15em; text-transform: uppercase; }
 .ath-eyebrow span { color: var(--ath-color-link); margin-right: 0.7rem; }
 .ath-intro { position: relative; }
-.ath-home .ath-intro { padding-block: 1rem 2.75rem; padding-right: 13rem; }
+.ath-home .ath-intro { padding-block: 1rem 2.75rem; padding-right: 16rem; }
 .ath-home h1 { font-size: clamp(2.5rem, 6vw, 4.5rem); }
 .ath-home h1::after { content: '_'; color: var(--ath-color-link); }
 .ath-home .ath-prose > p:first-of-type { max-width: 45ch; color: var(--ath-color-muted); font-size: 1.0625rem; }
 .ath-home .ath-prose blockquote { border: 0; padding: 0; margin-top: 1.75rem; color: var(--ath-color-muted); font-size: 0.75rem; }
 .ath-home .ath-prose blockquote::before { content: '// '; color: var(--ath-color-link); }
 .ath-home .ath-prose blockquote p { display: inline; }
-.ath-bookplate { position: absolute; right: 0; top: 0; width: 10rem; padding: 1.5rem 1rem 1rem; text-align: center; background-image: radial-gradient(var(--ath-color-border) 0.75px, transparent 0.75px); background-size: 12px 12px; }
-.ath-bookplate img { width: 100px; height: 100px; transform: rotate(-7deg); }
-.ath-bookplate span { display: block; margin-top: 1rem; font-size: 0.625rem; letter-spacing: 0.2em; color: var(--ath-color-muted); }
+.ath-bookplate { position: absolute; right: 1rem; top: 0; width: 13rem; padding: 1.5rem; text-align: center; background-image: radial-gradient(var(--ath-color-border) 0.75px, transparent 0.75px); background-size: 12px 12px; }
+.ath-bookplate img { display: block; width: 160px; height: 160px; transform: rotate(-7deg); }
 .ath-index-heading { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding-bottom: 0.85rem; color: var(--ath-color-muted); }
 .ath-index-heading h2, .ath-index-heading span { margin: 0; font-size: 0.6875rem; font-weight: 400; letter-spacing: 0.12em; text-transform: uppercase; }
 .ath-section-index { margin-top: 3rem; }
@@ -64,6 +65,8 @@ code, pre { font-family: var(--ath-font-code); }
 .ath-entry:hover .ath-entry-arrow { transform: translateX(4px); }
 .ath-project-link { display: inline-flex; align-items: center; gap: 1rem; margin-top: 1rem; padding: 0.65rem 1rem; border: 1px solid var(--ath-color-link); border-radius: 4px; text-decoration: none; font-size: 0.875rem; }
 .ath-project-link:hover { background: var(--ath-color-link); color: var(--ath-color-canvas); }
+.ath-project-actions p { margin-block: 0 0.75rem; }
+.ath-repository-link { display: inline-flex; align-items: center; gap: 0.6rem; padding-block: 0.25rem; font-size: 0.8125rem; }
 .ath-date, .ath-tags, .ath-project-status { color: var(--ath-color-muted); font-size: 0.75rem; }
 .ath-tags { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 2rem; }
 .ath-tag { border: 1px solid var(--ath-color-border); border-radius: 4px; padding: 0.15rem 0.6rem; }

@@ -6,6 +6,7 @@ import { parentUrl, sortedPages } from '../lib/content.ts';
 import type { Page as ContentPage } from '../lib/content.ts';
 import mark from '../../design/mark.svg?url';
 import regularFont from '../../design/fonts/caskaydia-cove-regular.woff2?url';
+import GithubIcon from '../components/GithubIcon.astro';
 
 interface Props {
   title: string;
@@ -47,6 +48,7 @@ for (let url = parentUrl(Astro.url.pathname); url; url = parentUrl(url)) {
       </a>
       <nav aria-label="Main navigation">
         {navigation.map((page) => <a href={page.url} aria-current={Astro.url.pathname === page.url ? 'page' : Astro.url.pathname.startsWith(page.url) ? 'true' : undefined}>{page.title}</a>)}
+        <a class="ath-github-profile" href="https://github.com/mr-valente" aria-label="mr-valente on GitHub" title="mr-valente on GitHub"><GithubIcon /></a>
       </nav>
     </header>
     <main id="main" class:list={['ath-page', { 'ath-home': isHome }]} tabindex="-1">

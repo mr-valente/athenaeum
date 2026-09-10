@@ -14,8 +14,8 @@ A small library after dark: ink and warm ivory, mint links, precise monospace ty
 | Reading | 16px body, 1.8 line height, 72ch reading width. Shell capped at 64rem. Fluid headings, smaller navigation and metadata. |
 | Layout | Generous open space, a thin header rule, numbered collection rows, compact breadcrumbs, and a quiet footer. Single column on phones; breakpoint at 640px. |
 | Surfaces | Flat dark surfaces, 1px borders, 3–4px corner radii for code and controls. No shadows or glass effects. |
-| Branding | A tesseract-inspired wireframe: nested cubes, eight connecting edges, and an ivory center rotated 45 degrees counterclockwise inside mint geometry. No dash. One hand-authored SVG serves the header, home bookplate, and favicon. |
-| Links | Mint inline links with underlines. Collection rows are single full-row links. Project launch links have a mint outline. |
+| Branding | A tesseract-inspired wireframe: nested cubes, eight connecting edges, and an ivory center rotated 45 degrees counterclockwise inside mint geometry. No dash or background fill. One transparent SVG serves the header, enlarged home mark over a dot grid, and favicon; no caption. |
+| Links | Mint inline links with underlines. Collection rows are single full-row links. Project launch links have a mint outline, with an optional Markdown-configured GitHub repository link below. A small GitHub mark in the header links to mr-valente. |
 | Accessibility | Semantic navigation, visible amber keyboard focus, skip link, wrapping navigation, and local scrolling for wide code, tables, and math. |
 | Motion | 160ms row hover and a 4px arrow movement. Reduced motion removes both. No looping or entrance animation. |
 | Markdown | Standard headings, prose, lists, quotes, code, tables, footnotes, images, and math receive styles automatically. No new frontmatter fields. |

@@ -9,3 +9,5 @@ CaskaydiaCove is bundled as two WOFF2 text subsets, about 107 KiB combined, with
 `mark.svg` is a tesseract-inspired wireframe: two nested cubes joined at their eight corresponding corners, with the inner cube rotated 45 degrees counterclockwise relative to the outer cube. Mint outer edges and an ivory inner cube give it depth; there is no cursor dash. Astro imports the asset directly so the same source is used in every placement. The header's wordmark comes from the home Markdown title.
 
 For another framework or repository, bundle a pinned copy of the styles and their relative font assets; do not fetch mutable styles at runtime. Consumer adoption and deployment remain explicit.
+
+The tesseract SVG has a transparent background. The home banner shows it at 160px over the dot grid, without a caption. GitHub links use the local `GithubIcon.astro` component, derived from [Primer Octicons](https://github.com/primer/octicons/blob/main/icons/mark-github-16.svg), with its [MIT license](octicons-LICENSE). No icon library or external asset request is added.

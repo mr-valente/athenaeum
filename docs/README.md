@@ -13,7 +13,7 @@ Guides 1 and 2 describe a fresh installation or a replacement after a disaster. 
 
 ## Development
 
-- [Authoring](development/authoring.md) — Markdown pages, assets, drafts, math, and print.
+- [Writing and arranging content](development/authoring.md) — start with a home-page edit, organize sections and lessons, add app links, and preview and publish Markdown.
 - [Site development](development/site-development.md) — pinned Node toolchain, source layout, and tests.
 - [Local stack](development/local-stack.md) — HTTPS and classroom workflow testing with disposable local data.
 - [Image builds](development/image-builds.md) — independent Fish builder entries, Docker Hub tags, and release checks.

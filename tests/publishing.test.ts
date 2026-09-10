@@ -21,6 +21,7 @@ test('real builds publish selected assets and remove drafts, stale assets, and d
     await writeFile(path.join(root, 'content/notes/values.csv'), 'x\n3\n');
     await writeFile(path.join(root, 'content/draft.md'), '---\ndraft: true\n---\n# DO_NOT_PUBLISH\n[Download](private.pdf)');
     await writeFile(path.join(root, 'content/private.pdf'), '%PDF-private-fixture');
+    await writeFile(path.join(root, 'content/app.md'), '---\nkind: project\nhref: https://example.com/app\nrepository: https://github.com/mr-valente/bernoulli\n---\n# App');
     await build();
     const html = await readFile(path.join(root, 'dist/notes/lesson/index.html'), 'utf8');
     assert.match(html, /<math/);
@@ -28,6 +29,10 @@ test('real builds publish selected assets and remove drafts, stale assets, and d
     assert.match(await readFile(path.join(root, 'dist/notes/index.html'), 'utf8'), /href="\/notes\/lesson\/"/);
     assert.equal(await readFile(path.join(root, 'dist/_content/notes/values.csv'), 'utf8'), 'x\n3\n');
     assert(!html.includes('<script'));
+    const appHtml = await readFile(path.join(root, 'dist/app/index.html'), 'utf8');
+    assert.match(appHtml, /href="https:\/\/github.com\/mr-valente\/bernoulli"/);
+    assert(appHtml.indexOf('Open App') < appHtml.indexOf('View App on GitHub'));
+    assert(!html.includes('ath-repository-link'));
     await assert.rejects(readFile(path.join(root, 'dist/_content/private.pdf')), { code: 'ENOENT' });
     await assert.rejects(readFile(path.join(root, 'dist/draft/index.html')), { code: 'ENOENT' });
     assert(!(await readFile(path.join(root, 'dist/sitemap.xml'), 'utf8')).includes('/draft/'));

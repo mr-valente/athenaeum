@@ -28,17 +28,19 @@ const metadataSchema = z.object({
   kind: z.enum(['page', 'project']).default('page'),
   href: z.string().trim().min(1).optional(),
   status: z.string().trim().optional(),
+  repository: z.string().trim().pipe(z.url()).refine((value) => value.startsWith('https://github.com/'), 'Use an https://github.com/ repository URL').optional(),
 }).strict().superRefine((data, ctx) => {
   if (data.kind === 'project' && !data.href)
     ctx.addIssue({ code: 'custom', message: 'Projects require href' });
-  if (data.kind !== 'project' && (data.href || data.status))
-    ctx.addIssue({ code: 'custom', message: 'href/status are project-only fields' });
+  if (data.kind !== 'project' && (data.href || data.status || data.repository))
+    ctx.addIssue({ code: 'custom', message: 'href/status/repository are project-only fields' });
 });
 
 export const pageSchema = z.object({
   url: z.string(), title: z.string(), description: z.string(), html: z.string(),
   order: z.number(), tags: z.array(z.string()), kind: z.enum(['page', 'project']),
   href: z.string().optional(), status: z.string().optional(), date: z.string().optional(),
+  repository: z.string().optional(),
   source: z.string().optional(), generated: z.boolean(), hasHeading: z.boolean(),
 });
 export type Page = z.infer<typeof pageSchema>;

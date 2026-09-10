@@ -53,6 +53,6 @@ ops/local-stack up --build --wait
 
 Open the configured local HTTPS address; the default is `https://localhost:8443/`. See [local stack](docs/development/local-stack.md) for certificate trust and saved ports.
 
-Edit `content/` for pages, project links and classroom resources. [Authoring](docs/development/authoring.md) describes Markdown, drafts, math and downloads. [Site development](docs/development/site-development.md) covers the toolchain and tests.
+Edit `content/` for pages, project links and classroom resources. Start with [Writing and arranging content](docs/development/authoring.md): edit the home page, organize sections and lessons, control ordering, add app links, and preview and publish your work. [Site development](docs/development/site-development.md) covers the toolchain and tests.
 
 To add an app, use the [app-creation skill](skills/athenaeum-app/SKILL.md), [architecture contracts](docs/reference/architecture.md), and [shared style](style.md). Each app remains independently buildable and deployable.
