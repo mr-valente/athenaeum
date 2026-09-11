@@ -29,5 +29,13 @@ def operate(cfg, command, visible=False):
             return
         say('Starting downloaded images and waiting up to 120 seconds for health...')
         docker(cfg, 'up', '--detach', '--no-build', '--pull', 'never', '--wait', '--wait-timeout', '120')
+        # Compose recreates a service when its definition changes, not when a file
+        # it mounts does, and Git replaces sablier.yaml beneath the container's
+        # single-file mount. Recreate Sablier every time so the checkout's policy,
+        # theme and assets are the ones running. Apps stay up; Sablier adopts them
+        # at the default session until verify renews each at its tier.
+        say('Recreating Sablier so the checked-out policy, theme and assets are re-read...')
+        docker(cfg, 'up', '--detach', '--no-build', '--pull', 'never', '--no-deps', '--force-recreate',
+               '--wait', '--wait-timeout', '120', 'sablier')
         say(compose(cfg, 'ps').decode())
         say('PASS: containers healthy. Run athenaeumctl verify and check a classroom workflow.\nImage rollback is manual; persistent data has not been replaced.')

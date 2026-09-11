@@ -144,12 +144,19 @@ class CommandTests(unittest.TestCase):
                  patch.object(management, 'recorded_backup', side_effect=lambda cfg: events.append(('backup',)) or {'snapshot': 'test'}), \
                  redirect_stdout(io.StringIO()):
                 management.operate({}, action, visible=True)
-            self.assertEqual([e[0] for e in events], {'deploy': ['backup', 'up'], 'pull': ['pull'],
-                                                     'update': ['backup', 'pull', 'up']}[action])
-            for event in events:
-                if event[0] == 'up':
-                    self.assertIn('--no-build', event)
-                    self.assertEqual(event[event.index('--pull') + 1], 'never')
+            self.assertEqual([e[0] for e in events], {'deploy': ['backup', 'up', 'up'], 'pull': ['pull'],
+                                                     'update': ['backup', 'pull', 'up', 'up']}[action])
+            ups = [event for event in events if event[0] == 'up']
+            for event in ups:
+                self.assertIn('--no-build', event)
+                self.assertEqual(event[event.index('--pull') + 1], 'never')
+            if ups:
+                # The stack is applied first; then only Sablier is recreated, so mounted
+                # policy and theme changes take effect without touching the apps.
+                self.assertNotIn('--force-recreate', ups[0])
+                self.assertEqual(ups[1][-1], 'sablier')
+                self.assertIn('--force-recreate', ups[1])
+                self.assertIn('--no-deps', ups[1])
 
     def test_cli_parses_examples_without_old_recovery_dispatch(self):
         for args in (['docker', 'pull', '--deploy'], ['repo', 'sync'], ['verify'],

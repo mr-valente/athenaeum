@@ -161,7 +161,7 @@ class RunbookTests(unittest.TestCase):
             expected = ['locked', 'backup']
             if failure != 'backup': expected += ['pull']
             if failure not in ('backup', 'pull'): expected += ['up']
-            if failure is None: expected += ['ps']
+            if failure is None: expected += ['up', 'ps']  # the stack, then Sablier alone
             self.assertEqual(events, expected + ['unlocked'])
 
     def test_recovery_uses_exact_image_and_cleans_only_its_private_key_on_failure(self):

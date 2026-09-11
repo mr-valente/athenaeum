@@ -33,7 +33,7 @@ athenaeumctl docker pull --deploy
 athenaeumctl verify
 ```
 
-This takes a verified backup, pulls images, recreates changed containers and waits for health. A failed backup or pull stops before replacement. `docker pull` alone only downloads images. Existing data and the signing keys remain in place.
+This takes a verified backup, pulls images, recreates changed containers and waits for health, then recreates Sablier so the checkout's policy and loading theme are the ones running. A failed backup or pull stops before replacement. `docker pull` alone only downloads images. Existing data and the signing keys remain in place.
 
 ## Change Compose or host tools
 
@@ -45,7 +45,7 @@ athenaeumctl docker deploy
 athenaeumctl verify
 ```
 
-`repo sync` validates and fast-forwards a clean `main` checkout. It refuses local edits, untracked files and diverged history. It does not change running containers. `docker deploy` backs up and applies Compose with already downloaded images; use `docker pull --deploy` when downloads are also needed.
+`repo sync` validates and fast-forwards a clean `main` checkout. It refuses local edits, untracked files and diverged history. It does not change running containers. `docker deploy` backs up, applies Compose with already downloaded images and recreates Sablier, so Sablier policy and theme edits need no separate step; use `docker pull --deploy` when downloads are also needed.
 
 When `ops/` changes, run `athenaeumctl self update` after sync. It refreshes installed tools without restarting Docker. Source content and baked Caddy configuration require rebuilding the relevant image; Git sync alone does not publish them.
 
@@ -80,6 +80,6 @@ To turn the report off, set `"monitor_object": null` in `/etc/athenaeum/recovery
 
 ## Routine care
 
-Apps sleep independently after their tier's idle period without requests, 72 hours for the current light apps; the main site stays up. `status` accepts cleanly stopped apps without waking them. `verify` deliberately wakes every app and renews its idle session. Use `athenaeumctl docker logs sablier` for lifecycle failures. See [on-demand applications](../reference/sablier.md) for policy/theme edits and their explicit Sablier recreation command.
+Apps sleep independently after their tier's idle period without requests, 72 hours for the current light apps; the main site stays up. `status` accepts cleanly stopped apps without waking them. `verify` deliberately wakes every app and renews its idle session. Use `athenaeumctl docker logs sablier` for lifecycle failures. See [on-demand applications](../reference/sablier.md) for policy/theme edits, which any deploy applies.
 
 Use `athenaeumctl backup` for an extra verified snapshot and `athenaeumctl list` to inspect recovery points. Monthly, check disk space, Oracle usage, Ubuntu updates, and repeat the [recovery drill](5-backup-and-recovery.md#recovery-drill-and-offsite-copy). Keep published image versions needed by backups. [Guide 5](5-backup-and-recovery.md) covers backup failures, rollback, restoration and cleanup of temporary recovery files.
