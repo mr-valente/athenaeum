@@ -10,14 +10,21 @@ UMask=0077
 ExecStart=/usr/local/sbin/athenaeumctl report
 TimeoutStartSec=90s
 Nice=10
-# The same sandbox as the backup unit, which runs the same Compose client
-# hourly, minus its writable paths: the report reads /proc, statvfs(), the
-# private recovery config and backup status, asks Docker for container states
-# and makes one outbound HTTPS request, and writes nothing locally. Tighter
-# settings (an empty capability set, private devices, address-family limits)
-# broke the Compose client under systemd while the shell path kept working.
+# Reads /proc, statvfs(), the private recovery config and backup status, asks
+# Docker for container states, then makes one outbound HTTPS request. It
+# writes nothing locally, so unlike the backup unit it gets no ReadWritePaths.
+# An empty CapabilityBoundingSet= is deliberately absent: with it the Docker
+# CLI cannot find its compose plugin, even as root, and the report loses the
+# container states. Every other directive here is verified with that client.
 NoNewPrivileges=true
 PrivateTmp=true
+PrivateDevices=true
 ProtectSystem=strict
 ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=true
+LockPersonality=true
 MemoryMax=512M
