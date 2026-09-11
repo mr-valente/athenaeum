@@ -68,6 +68,15 @@ Inspect Compute and Block Volume usage across compartments, including stopped in
 
 If the account is paid/PAYG, create a small monthly alert under **Billing & Cost Management -> Budgets**. A budget alert warns; it does not cap spending.
 
+### Account type, billing and idle reclamation
+
+Oracle bills on one axis and reclaims on another, and neither depends on how busy the VM is.
+
+- **Billing counts allocation.** A1 compute is metered at the instance's provisioned size: 1,500 OCPU hours and 9,000 GB hours are free each month, and a 2 OCPU / 12 GB instance running through a 31-day month uses 1,488 and 8,928. That leaves about six hours (thirty in a 30-day month) for two A1 instances to overlap, for example during a host replacement, before the overage is billed. Block Volume is metered by size (200 GB free), Object Storage by stored bytes and requests, outbound transfer by volume (10 TB free). CPU load on the instance costs nothing at any intensity.
+- **Reclamation counts utilization.** Oracle deems an Always Free instance idle when, over seven days, CPU, network and (on A1) memory utilization are all below 20% at the 95th percentile. A reclaimed instance is stopped, not terminated, after a week's warning email to the tenancy administrator, and can be restarted when A1 capacity is available in the region. Measured in September 2026 with the apps asleep, this host ran at about 3% CPU and 7% memory at the 95th percentile; each app adds roughly 100 MB when awake, about 1% of memory. The stack is idle by Oracle's definition, and no container arrangement changes that. Oracle's reclamation notices state that Pay As You Go accounts are exempt; the Always Free page itself does not restate this.
+
+**Keep the tenancy on Pay As You Go.** Treat a reclamation warning email or a stopped instance as the signal to act on, not the utilization figures. Do not run load to look busy: it changes no bill, and it is the practice Oracle's terms are read to forbid.
+
 **Checkpoint:** You know how much A1 compute and block storage are actually available before creating anything.
 
 ---
