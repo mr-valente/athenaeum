@@ -162,7 +162,7 @@ def main():
                 assert state(apps[service])['Status'] == 'created'
             assert request('/quacktuaries-other/')[0] == 200
             code, headers, html = request('/quacktuaries/deep?source=smoke', 'text/html')
-            assert code in (200, 503) and 'Opening Quacktuaries…' in html, (code, html)
+            assert code in (200, 503) and 'Opening Quacktuaries...' in html, (code, html)
             assert 'data:image/svg+xml;base64,' in html and 'src="assets/' not in html
             assert 'http-equiv="refresh"' in html and '{{' not in html
             Path('/tmp/athenaeum-sablier-preview.html').write_text(html)

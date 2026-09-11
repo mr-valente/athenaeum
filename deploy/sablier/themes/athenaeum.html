@@ -23,7 +23,8 @@
       .mark img { width: 6rem; height: 6rem; }
       .eyebrow, footer { color: #a1ada8; font-size: .8125rem; }
       .eyebrow { margin-bottom: 1rem; }
-      h1 { max-width: 22ch; margin: 0 0 1.5rem; font-size: clamp(2rem, 5vw, 3.25rem); line-height: 1.15; letter-spacing: -.06em; overflow-wrap: anywhere; }
+      /* Three periods, one cell each, keep the trailing dots evenly spaced; the ellipsis glyph and Cascadia's ... ligature both cramp them. */
+      h1 { max-width: 22ch; margin: 0 0 1.5rem; font-size: clamp(2rem, 5vw, 3.25rem); line-height: 1.15; letter-spacing: -.06em; overflow-wrap: anywhere; font-variant-ligatures: none; }
       p { max-width: 64ch; }
       .status { display: flex; align-items: center; gap: 1rem; margin-block: 2rem; padding: 1rem 1.25rem; border: 1px solid #303c3b; border-radius: 4px; background: #171e20; width: fit-content; }
       .status::before { content: ''; flex: none; width: 1.125rem; height: 1.125rem; border-radius: 50%; background: #a6dfb5; background-clip: padding-box; border: 4px solid rgba(166, 223, 181, .3); animation: breathe 2.8s ease-in-out infinite; }
@@ -41,7 +42,7 @@
     <main id="main">
       <div class="mark" aria-hidden="true"><img src="assets/mark.svg" alt="" width="96" height="96"></div>
       <p class="eyebrow">APPLICATION / WAKING UP</p>
-      <h1>Opening {{ .DisplayName }}…</h1>
+      <h1>Opening {{ .DisplayName }}...</h1>
       <p>A quiet moment while we turn on the lights. This application rests between visits; your work stays on the shelf.</p>
       <div class="status" role="status">Waiting for the application to be ready.</div>
       <p class="note">This page checks again automatically.</p>
