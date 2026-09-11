@@ -32,6 +32,16 @@ Reuse `deploy/sablier/themes/athenaeum.html`, including Go template refresh/sess
 
 Verify each group independently: cold HTML navigation, cold POST/API forwarding, prefix/query preservation, hidden probes not waking apps, idle shutdown, a second app remaining asleep, and the main website remaining available. `status` must accept cleanly stopped registered apps but reject crashes/missing services; `verify` deliberately wakes apps and requires readiness afterward. See `docs/reference/sablier.md` for the policy and local smoke test.
 
+### Size a heavy app for the host
+
+Sablier keeps only the apps in use resident, which is what lets a resource-hungry app (a JVM, a loaded model, a database sidecar) join the list on the 2 OCPU / 12 GB host. It relaxes memory and nothing else. Before adding one:
+
+- Measure its resident memory awake and set an honest `mem_limit`; the light apps use `1g`. The host baseline is about 1 GB, and that plus the apps expected awake together must fit in 12 GB. A container over its own limit is killed alone instead of starving the host.
+- Its image occupies the 50 GB boot volume whether or not it runs. Check the host report's root filesystem figure before adding a multi-gigabyte image.
+- Match wake-up to its start time. Set the Docker healthcheck `start_period` to cover loading, and raise the blocking `timeout` in `apps.caddy` (1m today) past it; otherwise POSTs and API calls during a cold start receive Sablier's problem document while the HTML loading page keeps waiting.
+- Give it a shorter session than the common 12h so it sleeps between uses: `session_duration` is a top-level option of the `sablier` directive beside `group` (plugin v1.0.2), so add it through a variant of the `app` snippet or an extra argument, on the order of 1–2h. This is the requirement the default-duration rule above anticipates; keep light apps on the default.
+- CPU is not relaxed: two heavy apps in use together share two OCPUs, and a single-process server is bounded by one of them.
+
 ## Own the image and release
 
 Follow `docs/development/image-builds.md`. Each app owns its source repository, Dockerfile/Compose recipe, Docker Hub repository (`valentemath/<app>`), shared Fish `builds.yaml` entry and SemVer record in `versions.txt`. Releasing it must not build or increment Athenaeum or another app. Athenaeum's `docker/compose.yaml` builds only its website and edge.
