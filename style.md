@@ -17,7 +17,7 @@ A small library after dark: ink and warm ivory, mint links, precise monospace ty
 | Branding | A tesseract-inspired wireframe: nested cubes, eight connecting edges, and an ivory center rotated 45 degrees counterclockwise inside mint geometry. No dash or background fill. One transparent SVG serves the header, enlarged home mark over a dot grid, and favicon; no caption. |
 | Links | Mint inline links with underlines. Collection rows are single full-row links. Project launch links have a mint outline, with an optional Markdown-configured GitHub repository link below. A small GitHub mark in the header links to mr-valente. |
 | Accessibility | Semantic navigation, visible amber keyboard focus, skip link, wrapping navigation, and local scrolling for wide code, tables, and math. |
-| Motion | 160ms row hover and a 4px arrow movement. Reduced motion removes both. No looping or entrance animation. |
+| Motion | 160ms row hover and a 4px arrow movement. Reduced motion removes both. No looping or entrance animation, with one exception: the status light on the app waiting page breathes slowly while an app wakes, and reduced motion stills it. |
 | Markdown | Standard headings, prose, lists, quotes, code, tables, footnotes, images, and math receive styles automatically. No new frontmatter fields. |
 | Print | Black text, white paper, no decorative shell. Tables expand and code wraps; math keeps KaTeX rendering. |
 | Empty/error states | Plain text for empty collections; a small “404 / Off the shelf” label on the error page. |

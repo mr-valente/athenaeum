@@ -24,7 +24,7 @@ The edge image compiles Caddy 2.11.4 with the pinned Sablier plugin v1.0.2. The 
 
 ## Loading-page design
 
-`deploy/sablier/themes/athenaeum.html` follows the After hours contract: ink canvas, warm ivory text, mint accents, amber keyboard focus, monospace fallback, flat borders and the shared tesseract mark. There is no looping animation, JavaScript or external asset service. The layout works on narrow screens; refresh and manual retry preserve the requested path and query.
+`deploy/sablier/themes/athenaeum.html` follows the After hours contract: ink canvas, warm ivory text, mint accents, amber keyboard focus, monospace fallback, flat borders and the shared tesseract mark. The status light breathes slowly, the one looping animation the style contract allows, and holds still under reduced motion; there is no JavaScript or external asset service. The layout works on narrow screens; refresh and manual retry preserve the requested path and query.
 
 Compose mounts `design/` as the theme's `assets/` directory. Sablier embeds the SVG into the response, so the loading page never needs to request assets from a sleeping app. The template uses `.DisplayName` and `.RefreshFrequency`; session lengths and other infrastructure details are hidden. Config/theme files are read-only mounts from the checkout. Recreate Sablier after policy, asset or theme changes so configuration and asset bundling are refreshed:
 
