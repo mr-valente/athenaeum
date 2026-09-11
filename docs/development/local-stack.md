@@ -1,6 +1,6 @@
 # Local ecosystem
 
-This stack includes Sablier and uses the same separate app groups and 12-hour idle policy as production. Use a Docker daemon that is not already managed by another Sablier instance: lifecycle discovery is daemon-wide even though groups are project-qualified. See [on-demand applications](../reference/sablier.md) for cold-start checks and the disposable smoke test.
+This stack includes Sablier and uses the same separate app groups and session tiers as production. Use a Docker daemon that is not already managed by another Sablier instance: lifecycle discovery is daemon-wide even though groups are project-qualified. See [on-demand applications](../reference/sablier.md) for cold-start checks and the disposable smoke test.
 
 Run from the Athenaeum checkout, with the Quacktuaries and Bernoulli checkouts beside it. Requires Docker Engine, Compose 2.24.4+ (for the local port override), and Python 3.
 

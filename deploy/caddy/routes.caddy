@@ -1,8 +1,8 @@
 header X-Content-Type-Options nosniff
 header Referrer-Policy strict-origin-when-cross-origin
 
-import app /quacktuaries quacktuaries Quacktuaries
-import app /bernoulli bernoulli Bernoulli
+import light /quacktuaries quacktuaries Quacktuaries
+import light /bernoulli bernoulli Bernoulli
 handle {
 	reverse_proxy athenaeum:8080
 }

@@ -21,12 +21,14 @@
 			}
 			sablier @document_{args[1]} http://sablier:10000 {
 				group {$SABLIER_GROUP_PREFIX:athenaeum}-{args[1]}
+				session_duration {args[3]}
 				dynamic {
 					display_name {args[2]}
 				}
 			}
 			sablier @background_{args[1]} http://sablier:10000 {
 				group {$SABLIER_GROUP_PREFIX:athenaeum}-{args[1]}
+				session_duration {args[3]}
 				blocking {
 					timeout 1m
 				}
@@ -38,4 +40,23 @@
 			}
 		}
 	}
+}
+
+# Session tiers: how long an app stays awake after its last request. A route
+# names its tier by measured awake memory (skills/athenaeum-app/SKILL.md); the
+# environment variables let a test shorten one without editing the routes.
+(light) {
+	import app {args[0]} {args[1]} {args[2]} {$SABLIER_SESSION_LIGHT:72h}
+}
+
+(middle) {
+	import app {args[0]} {args[1]} {args[2]} {$SABLIER_SESSION_MIDDLE:12h}
+}
+
+(heavy) {
+	import app {args[0]} {args[1]} {args[2]} {$SABLIER_SESSION_HEAVY:4h}
+}
+
+(superheavy) {
+	import app {args[0]} {args[1]} {args[2]} {$SABLIER_SESSION_SUPERHEAVY:1h}
 }

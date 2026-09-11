@@ -80,6 +80,6 @@ To turn the report off, set `"monitor_object": null` in `/etc/athenaeum/recovery
 
 ## Routine care
 
-Apps sleep independently after 12 hours without requests; the main site stays up. `status` accepts cleanly stopped apps without waking them. `verify` deliberately wakes every app and renews its idle session. Use `athenaeumctl docker logs sablier` for lifecycle failures. See [on-demand applications](../reference/sablier.md) for policy/theme edits and their explicit Sablier recreation command.
+Apps sleep independently after their tier's idle period without requests, 72 hours for the current light apps; the main site stays up. `status` accepts cleanly stopped apps without waking them. `verify` deliberately wakes every app and renews its idle session. Use `athenaeumctl docker logs sablier` for lifecycle failures. See [on-demand applications](../reference/sablier.md) for policy/theme edits and their explicit Sablier recreation command.
 
 Use `athenaeumctl backup` for an extra verified snapshot and `athenaeumctl list` to inspect recovery points. Monthly, check disk space, Oracle usage, Ubuntu updates, and repeat the [recovery drill](5-backup-and-recovery.md#recovery-drill-and-offsite-copy). Keep published image versions needed by backups. [Guide 5](5-backup-and-recovery.md) covers backup failures, rollback, restoration and cleanup of temporary recovery files.

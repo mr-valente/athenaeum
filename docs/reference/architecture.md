@@ -26,7 +26,7 @@ Only Caddy publishes host ports 80/443. The website, edge and apps run as UID/GI
 
 The private `apps` network connects trusted owned applications; Docker supplies names and addresses. Caddy also joins the outbound network. Apps receive neither a Docker socket nor OCI credentials. The host firewall denies container access to Oracle metadata; the host's instance principal authenticates backup storage requests.
 
-Caddy and Sablier additionally share the private `control` network; apps cannot reach Sablier's privileged API. Each hosted app has its own Sablier group and sleeps after 12 hours without requests. The website is never managed by Sablier. See [on-demand applications](sablier.md) for loading-page routing, security, session behavior and verification.
+Caddy and Sablier additionally share the private `control` network; apps cannot reach Sablier's privileged API. Each hosted app has its own Sablier group and sleeps after its session tier's idle period without requests (72 hours for a light app, down to one hour for the heaviest). The website is never managed by Sablier. See [on-demand applications](sablier.md) for loading-page routing, security, session behavior and verification.
 
 Caddy redirects `www` to the apex, preserves queries on each app's slash redirect (`/quacktuaries`, `/bernoulli`), and strips the prefix upstream. Each app generates prefixed links, forms, assets and redirects, and hides its `/_health` probe from the public route. Cookies are per app (`quacktuaries_session`, `bernoulli_session`): host-only, scoped to the app's prefix, HttpOnly, SameSite=Lax, and Secure in production. Same-domain apps share a browser origin.
 

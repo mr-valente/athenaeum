@@ -114,16 +114,25 @@ def main():
                 '--mount', f'type=bind,src={ROOT}/design,dst=/etc/sablier/themes/assets,readonly',
             ], ['start', '--logging.level=debug', '--provider.auto-warm-externally-started=false',
                 '--provider.auto-stop-on-startup=false', '--provider.auto-stop-externally-started=false',
-                '--sessions.default-duration=15s', '--sessions.expiration-interval=1s'], start=True)
+                '--sessions.expiration-interval=1s'], start=True)
             wait_for(lambda: subprocess.run(['docker', 'exec', sablier, '/bin/sablier', 'health'],
                                             capture_output=True).returncode == 0)
-            for entrypoint in ('Caddyfile', 'Caddyfile.local'):
+            # The routes use only the light tier; prove the other tier snippets adapt too.
+            tiers = Path(directory) / 'tiers.caddy'
+            tiers.write_text('{\n\tadmin off\n\tpersist_config off\n}\n\nimport /etc/caddy/apps.caddy\n\n:8080 {\n'
+                             + ''.join(f'\timport {tier} /{tier} {tier} {tier.title()}\n'
+                                       for tier in ('light', 'middle', 'heavy', 'superheavy')) + '}\n')
+            for entrypoint in ('Caddyfile', 'Caddyfile.local', 'tiers.caddy'):
                 docker('run', '--rm', '--cap-drop', 'ALL', '--security-opt', 'no-new-privileges',
                        '--tmpfs', '/data:uid=10001,gid=10001', '--tmpfs', '/config:uid=10001,gid=10001',
+                       '--mount', f'type=bind,src={tiers},dst=/etc/caddy/tiers.caddy,readonly',
                        '-e', 'SITE_DOMAIN=localhost', '-e', 'ACME_EMAIL=smoke@example.test', EDGE,
                        'caddy', 'validate', '--config', '/etc/caddy/' + entrypoint, '--adapter', 'caddyfile')
+            # Both fixtures are light-tier routes; shorten that tier so expiry fits the test.
+            # The server keeps its 1h default, so expiry proves the route's duration reached Sablier.
             edge = create('edge', EDGE, [
                 '--publish', '127.0.0.1::8080', '-e', f'SABLIER_GROUP_PREFIX={prefix}',
+                '-e', 'SABLIER_SESSION_LIGHT=15s',
                 '--tmpfs', '/data:uid=10001,gid=10001', '--tmpfs', '/config:uid=10001,gid=10001',
                 '--mount', f'type=bind,src={config},dst=/etc/caddy/smoke.caddy,readonly',
             ], ['caddy', 'run', '--config', '/etc/caddy/smoke.caddy', '--adapter', 'caddyfile'], start=True)

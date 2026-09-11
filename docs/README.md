@@ -24,4 +24,4 @@ Guides 1 and 2 describe a fresh installation or a replacement after a disaster. 
 ## Reference
 
 - [Architecture and application contracts](reference/architecture.md) — services, networking, files, and integration requirements.
-- [On-demand applications](reference/sablier.md) — separate Sablier groups, 12-hour idle sessions, loading theme and verification.
+- [On-demand applications](reference/sablier.md) — separate Sablier groups, session tiers by app weight, loading theme and verification.

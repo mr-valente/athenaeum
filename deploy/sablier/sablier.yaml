@@ -9,7 +9,11 @@ provider:
 server:
   port: 10000
 sessions:
-  default-duration: 12h
+  # Routes set each app's session through its tier in deploy/caddy/apps.caddy.
+  # This value reaches only an app Sablier finds already running (after a
+  # deployment or its own restart) and the self-heal reseed: the shortest tier,
+  # so nothing heavy is kept awake by accident; verify renews apps at their tier.
+  default-duration: 1h
 strategy:
   dynamic:
     custom-themes-path: /etc/sablier/themes
