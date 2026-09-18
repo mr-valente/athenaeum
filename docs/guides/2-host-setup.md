@@ -2,7 +2,7 @@
 
 Start after [Guide 1](1-oracle-infrastructure.md): an Ubuntu 26.04 ARM VM, attached data volume, reserved IPv4, backup bucket, instance permissions and working SSH access. This guide prepares a fresh host and starts the stack. For disaster recovery, read [Guide 5](5-backup-and-recovery.md#disaster-recovery) first and use its original database/key instructions at the checkpoints below.
 
-Keep a workstation terminal and a VM SSH session open. Workstation examples assume Arch Linux; `build` commands run in Fish. VM commands work in Bash. Substitute your domain, VM address, resource identifiers and existing SSH key. Stop when a command or checkpoint fails.
+Keep a workstation terminal and a VM SSH session open. Workstation examples assume Arch Linux; `build` commands run in Fish. VM commands are written for Bash. The `ubuntu` login shell is fish; almost everything runs in it as written, and the exceptions are marked where they occur: a `VAR=value` assignment (fish: `set VAR value`) and heredoc snippets (`<<'PY'`), which need a `bash` session first (`bash`, paste, `exit`). Substitute your domain, VM address, resource identifiers and existing SSH key. Stop when a command or checkpoint fails.
 
 ## 1. Clone the host repository
 
@@ -22,7 +22,7 @@ If the stack directory already exists, inspect it and preserve local work. Keep 
 
 ## 2. Mount the data volume
 
-**VM — Bash:** Set the device only after checking the block-device inventory:
+**VM — Bash** (in fish, write the first line as `set ATHENAEUM_DEVICE /dev/...`): Set the device only after checking the block-device inventory:
 
 ```bash
 ATHENAEUM_DEVICE=/dev/REPLACE_VERIFIED_DATA_DISK

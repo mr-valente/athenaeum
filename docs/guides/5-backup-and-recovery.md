@@ -127,7 +127,7 @@ Archived configuration is evidence for reconstruction, not a script to execute. 
 
 This uses Python, age, the checked-out host code and an explicit local config. It requires no Oracle credentials, Docker or surviving data mount. Use a fresh private workspace with at least the configured restore headroom.
 
-**Workstation — Bash**, from the Athenaeum checkout:
+**Workstation — Bash** (this is a heredoc: from fish, run `bash` first, paste, then `exit`), from the Athenaeum checkout:
 
 ```bash
 umask 077
@@ -192,7 +192,7 @@ sudo test ! -e /etc/athenaeum/quacktuaries-session-secret && \
 
 If the test fails, stop and check the existing key against the recovery source; do not overwrite a key used by surviving records. If it is already the correct key, retain it and continue. Complete Guide 2's service installation to prepare owned directories, but leave the containers and timer unstarted. The installer generates a fresh key only for an app whose key is absent and whose data directory is empty.
 
-On a **fresh, empty replacement data directory**, install each validated database:
+On a **fresh, empty replacement data directory**, install each validated database (**VM — Bash**: the check is a heredoc, so from fish run `bash` first, paste, then `exit`):
 
 ```bash
 sudo python3 - <<'PY'
