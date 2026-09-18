@@ -1,5 +1,7 @@
-header X-Content-Type-Options nosniff
-header Referrer-Policy strict-origin-when-cross-origin
+# Deferred (>) so each replaces the upstream's copy instead of duplicating it.
+header >Strict-Transport-Security "max-age=31536000; includeSubDomains"
+header >X-Content-Type-Options nosniff
+header >Referrer-Policy strict-origin-when-cross-origin
 
 import light /quacktuaries quacktuaries Quacktuaries
 import light /bernoulli bernoulli Bernoulli

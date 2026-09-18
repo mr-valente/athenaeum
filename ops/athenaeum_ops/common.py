@@ -73,7 +73,7 @@ APPS = {
     'bernoulli': {'secret': 'bernoulli_session_secret', 'root_path': '/bernoulli',
                   'tables': {'teachers', 'sessions', 'players', 'flip_flop_rounds', 'flip_flop_votes'}},
 }
-SERVICES = ('edge', 'athenaeum', 'sablier', *APPS)
+SERVICES = ('edge', 'athenaeum', 'socket-proxy', 'sablier', *APPS)
 
 
 def container_ok(item, allow_sleeping=True):

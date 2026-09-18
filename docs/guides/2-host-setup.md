@@ -136,7 +136,7 @@ athenaeumctl docker images
 athenaeumctl docker pull
 ```
 
-**Checkpoint:** All five expected ARM64 images, including Sablier, download successfully. No containers have been started.
+**Checkpoint:** All six expected ARM64 images, including Sablier and its socket proxy, download successfully. No containers have been started.
 
 ## 7. Configure DNS
 

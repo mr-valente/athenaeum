@@ -37,17 +37,47 @@ services:
         bind: {create_host_path: false}
     networks: [default, apps, control]
 
-  sablier:
+  socket-proxy:
     <<: *runtime
-    image: sablierapp/sablier:1.18.0
-    mem_limit: 128m
-    command: [start, --configFile=/etc/sablier/sablier.yaml]
+    # The only service holding the Docker socket. HAProxy forwards Sablier just
+    # what a stop-strategy lifecycle manager needs (list, inspect, start, stop,
+    # events, ping, version); create, exec, logs, images and volumes stay denied,
+    # so a compromised Sablier cannot reach the host through the socket.
+    image: lscr.io/linuxserver/socket-proxy:3.4.4-r0-ls97@sha256:ba211325155c463a1a6e6a038c928f21447a8e60ce02ecf41302047974097e84
+    mem_limit: 64m
+    environment:
+      CONTAINERS: '1'
+      ALLOW_START: '1'
+      ALLOW_STOP: '1'
+      POST: '0'
+      LOG_LEVEL: warning
     volumes:
       - type: bind
         source: /var/run/docker.sock
         target: /var/run/docker.sock
         read_only: true
         bind: {create_host_path: false}
+    tmpfs:
+      # The entrypoint renders haproxy.cfg here; nothing else is written.
+      - /run:size=1048576,mode=0755,noexec,nosuid,nodev
+    healthcheck:
+      test: [CMD, wget, -q, -O, /dev/null, http://127.0.0.1:2375/_ping]
+      interval: 15s
+      timeout: 3s
+      start_period: 5s
+      retries: 3
+    networks: [socket]
+
+  sablier:
+    <<: *runtime
+    image: sablierapp/sablier:1.18.0
+    mem_limit: 128m
+    command: [start, --configFile=/etc/sablier/sablier.yaml]
+    environment:
+      DOCKER_HOST: tcp://socket-proxy:2375
+    depends_on:
+      socket-proxy: {condition: service_healthy}
+    volumes:
       - type: bind
         source: ./deploy/sablier/sablier.yaml
         target: /etc/sablier/sablier.yaml
@@ -69,7 +99,7 @@ services:
       timeout: 3s
       start_period: 5s
       retries: 3
-    networks: [control]
+    networks: [control, socket]
 
   athenaeum:
     <<: *runtime
@@ -131,6 +161,8 @@ services:
 
 networks:
   control:
+    internal: true
+  socket:
     internal: true
   apps:
     internal: true

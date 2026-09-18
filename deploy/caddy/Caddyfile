@@ -5,6 +5,11 @@
 	email {$ACME_EMAIL}
 	http_port 8080
 	https_port 8443
+	# Only TCP 443 is published and allowed by the cloud firewall, so an
+	# advertised HTTP/3 listener would name a UDP port nobody can reach.
+	servers {
+		protocols h1 h2
+	}
 }
 
 import /etc/caddy/apps.caddy

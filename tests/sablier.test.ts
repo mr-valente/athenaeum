@@ -24,20 +24,39 @@ test('only app services opt in, with independent project-qualified groups', () =
   assert.equal(compose.services.edge.environment.SABLIER_GROUP_PREFIX, '${COMPOSE_PROJECT_NAME:-athenaeum}');
 });
 
+const members = (network: string) => Object.entries(compose.services).filter(([, service]: [string, any]) => service.networks.includes(network)).map(([name]) => name);
+
 test('privileged lifecycle API is isolated from application peers', () => {
-  assert.deepEqual(compose.services.sablier.networks, ['control']);
+  assert.deepEqual(compose.services.sablier.networks, ['control', 'socket']);
   assert.equal(compose.services.sablier.ports, undefined);
   assert.equal(compose.networks.control.internal, true);
-  assert.deepEqual(Object.entries(compose.services).filter(([, service]: [string, any]) => service.networks.includes('control')).map(([name]) => name), ['edge', 'sablier']);
-  for (const [name, service] of Object.entries<any>(compose.services)) {
-    const sockets = (service.volumes ?? []).filter((mount: any) => mount.target === '/var/run/docker.sock');
-    assert.equal(sockets.length, name === 'sablier' ? 1 : 0);
-  }
+  assert.deepEqual(members('control'), ['edge', 'sablier']);
   for (const mount of compose.services.sablier.volumes) {
     assert.equal(mount.read_only, true);
     assert.equal(mount.bind.create_host_path, false);
   }
   assert.deepEqual(compose.services.sablier.healthcheck.test, ['CMD', '/bin/sablier', 'health']);
+});
+
+test('the Docker socket reaches Sablier only through the allowlisting proxy', () => {
+  const proxy = compose.services['socket-proxy'];
+  assert.equal(compose.networks.socket.internal, true);
+  assert.deepEqual(members('socket'), ['socket-proxy', 'sablier']);
+  assert.deepEqual(proxy.networks, ['socket']);
+  assert.equal(proxy.ports, undefined);
+  for (const [name, service] of Object.entries<any>(compose.services)) {
+    const sockets = (service.volumes ?? []).filter((mount: any) => mount.target === '/var/run/docker.sock');
+    assert.equal(sockets.length, name === 'socket-proxy' ? 1 : 0);
+  }
+  for (const mount of proxy.volumes) {
+    assert.equal(mount.read_only, true);
+    assert.equal(mount.bind.create_host_path, false);
+  }
+  assert.equal(compose.services.sablier.environment.DOCKER_HOST, 'tcp://socket-proxy:2375');
+  assert.equal(compose.services.sablier.depends_on['socket-proxy'].condition, 'service_healthy');
+  // Exactly the stop strategy's needs: list/inspect plus start and stop as the only writes.
+  assert.deepEqual(proxy.environment, { CONTAINERS: '1', ALLOW_START: '1', ALLOW_STOP: '1', POST: '0', LOG_LEVEL: 'warning' });
+  assert.equal(proxy.healthcheck.test[1], 'wget');
 });
 
 test('every managed app takes its session from a tier, and each tier carries its default', () => {
