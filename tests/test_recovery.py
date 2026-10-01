@@ -37,13 +37,14 @@ class Fixture(unittest.TestCase):
             self.create_database(app)
         for name in ('state', 'objects'):
             (self.root / name).mkdir(mode=0o700)
-        for name in ('secret', 'bernoulli-secret', 'compose.env', 'compose.yaml'):
+        for name in ('secret', 'bernoulli-secret', 'accounts-secret', 'compose.env', 'compose.yaml'):
             (self.root / name).write_text('fixture-' * 8)
             (self.root / name).chmod(0o600)
         self.cfg = {'schema': 1, 'mode': 'local', 'filesystem_uuid': '', 'data_root': str(self.data),
                     'state_dir': str(self.root / 'state'), 'compose_project': 'fixture',
                     'compose_files': [str(self.root / 'compose.yaml')], 'compose_env': str(self.root / 'compose.env'),
                     'session_secret': str(self.root / 'secret'), 'bernoulli_session_secret': str(self.root / 'bernoulli-secret'),
+                    'accounts_session_secret': str(self.root / 'accounts-secret'),
                     'recipient': 'age1' + 'a' * 58,
                     'age_binary': AGE, 'bucket_cap_bytes': 10_000_000, 'max_snapshot_bytes': 2_000_000,
                     'max_restore_bytes': 5_000_000, 'min_free_bytes': 1000, 'stale_after_seconds': 7200,
@@ -58,7 +59,8 @@ class Fixture(unittest.TestCase):
         with contextlib.closing(sqlite3.connect(self.data / 'apps' / app / 'data/app.db')) as db, db:
             for table in sorted(APPS[app]['tables']):
                 db.execute(f'CREATE TABLE {table} (id INTEGER PRIMARY KEY, value TEXT)')
-            db.execute("INSERT INTO teachers(value) VALUES ('synthetic teacher')")
+            table = 'users' if app == 'accounts' else 'teachers'
+            db.execute(f"INSERT INTO {table}(value) VALUES ('synthetic fixture')")
 
 
 class Guards(Fixture):
@@ -94,7 +96,7 @@ class Guards(Fixture):
                     self.fail('second lock must fail')
 
     def test_missing_secret_symlink_and_low_disk_fail(self):
-        for name in ('secret', 'bernoulli-secret'):
+        for name in ('secret', 'bernoulli-secret', 'accounts-secret'):
             secret = self.root / name
             secret.unlink()
             with self.assertRaises(Failure):
@@ -122,8 +124,8 @@ class Guards(Fixture):
         both = {'schema': 2, 'applications': {app: {'hook': 'sqlite-v1', 'database': {}} for app in APPS}}
         one = {'schema': 1, 'application': 'quacktuaries', 'hook': 'sqlite-v1', 'database': {}}
         self.assertEqual(select_images(['sha256:a'], one), {'quacktuaries': 'sha256:a'})
-        self.assertEqual(select_images(['bernoulli=sha256:b', 'quacktuaries=sha256:a'], both),
-                         {'quacktuaries': 'sha256:a', 'bernoulli': 'sha256:b'})
+        self.assertEqual(select_images(['accounts=sha256:c', 'bernoulli=sha256:b', 'quacktuaries=sha256:a'], both),
+                         {'accounts': 'sha256:c', 'quacktuaries': 'sha256:a', 'bernoulli': 'sha256:b'})
         for values, manifest in ((['sha256:a'], both), (['quacktuaries=sha256:a'], both),
                                  (['quacktuaries=sha256:a', 'quacktuaries=sha256:b'], both),
                                  (['bernoulli=sha256:b'], one), (['other=sha256:c', 'quacktuaries=sha256:a'], one)):
@@ -198,10 +200,11 @@ class EncryptedRecovery(Fixture):
         manifest = restore(self.cfg, target, self.identity, result['snapshot'], store=self.store)
         self.assertEqual(manifest['schema'], 2)
         for app in APPS:
-            self.assertEqual(manifest['applications'][app]['database']['row_counts']['teachers'], 1)
+            self.assertEqual(manifest['applications'][app]['database']['row_counts']['users' if app == 'accounts' else 'teachers'], 1)
             self.assertTrue((target / 'apps' / app / 'app.db').is_file())
         self.assertEqual((target / 'secrets/quacktuaries-session-secret').read_bytes(), (self.root / 'secret').read_bytes())
         self.assertEqual((target / 'secrets/bernoulli-session-secret').read_bytes(), (self.root / 'bernoulli-secret').read_bytes())
+        self.assertEqual((target / 'secrets/accounts-session-secret').read_bytes(), (self.root / 'accounts-secret').read_bytes())
         with self.assertRaises(Failure):
             restore(self.cfg, target, self.identity, result['snapshot'], store=self.store)
         with self.assertRaises(Failure):
@@ -211,8 +214,28 @@ class EncryptedRecovery(Fixture):
         offline = restore(self.cfg, self.root / 'offline', self.identity, archive=exported, expected_sha256=info['ciphertext_sha256'])
         self.assertEqual(offline['applications'], manifest['applications'])
 
+    def test_account_credentials_are_private_and_accounts_snapshot_follows_apps(self):
+        credentials = json.dumps({'session_secret': 's' * 64, 'google_client_id': 'fixture.apps.googleusercontent.com',
+                                  'google_client_secret': 'synthetic-private-secret'})
+        (self.root / 'accounts-secret').write_text(credentials)
+        from athenaeum_ops import archive
+        order = []
+        original = archive.snapshot_database
+        def snapshot(source, destination, tables, **kwargs):
+            order.append(source.parent.parent.name)
+            return original(source, destination, tables, **kwargs)
+        with patch.object(archive, 'snapshot_database', side_effect=snapshot):
+            result = backup(self.cfg, self.store, self.images)
+        self.assertEqual(order[-1], 'accounts')
+        target = self.root / 'account-credentials-restored'
+        restore(self.cfg, target, self.identity, result['snapshot'], store=self.store)
+        restored = target / 'secrets/accounts-session-secret'
+        self.assertEqual(restored.read_text(), credentials)
+        self.assertEqual(restored.stat().st_mode & 0o777, 0o600)
+
     def test_new_app_without_database_is_archived_as_key_only(self):
         (self.data / 'apps/bernoulli/data/app.db').unlink()
+        (self.data / 'apps/accounts/data/app.db').unlink()
         result = backup(self.cfg, self.store, {'quacktuaries': self.images['quacktuaries']})
         target = self.root / 'restored'
         manifest = restore(self.cfg, target, self.identity, result['snapshot'], store=self.store)

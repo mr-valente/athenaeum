@@ -68,6 +68,8 @@ def atomic_json(path, data):
 # key below. Its Compose service, secret (<name>_session), image override
 # (<NAME>_IMAGE) and public prefix all derive from the name.
 APPS = {
+    'accounts': {'secret': 'accounts_session_secret', 'root_path': '/account', 'always_awake': True,
+                 'tables': {'users', 'identities', 'account_sessions', 'performance', 'account_audit'}},
     'quacktuaries': {'secret': 'session_secret', 'root_path': '/quacktuaries',
                      'tables': {'teachers', 'sessions', 'players', 'device_stats', 'events'}},
     'bernoulli': {'secret': 'bernoulli_session_secret', 'root_path': '/bernoulli',
@@ -79,6 +81,7 @@ SERVICES = ('edge', 'athenaeum', 'socket-proxy', 'sablier', *APPS)
 def container_ok(item, allow_sleeping=True):
     return ((item.get('State') == 'running' and item.get('Health') == 'healthy')
             or (allow_sleeping and item.get('Service') in APPS
+                and not APPS[item['Service']].get('always_awake')
                 and item.get('State') == 'exited' and item.get('ExitCode') == 0))
 
 
@@ -121,6 +124,7 @@ DEFAULTS = {
     'compose_env': '/etc/athenaeum/compose.env',
     'session_secret': '/etc/athenaeum/quacktuaries-session-secret',
     'bernoulli_session_secret': '/etc/athenaeum/bernoulli-session-secret',
+    'accounts_session_secret': '/etc/athenaeum/accounts-session-secret',
     'age_binary': '/opt/athenaeum/tools/age', 'bucket_cap_bytes': 8_000_000_000,
     'max_snapshot_bytes': 1_000_000_000, 'max_restore_bytes': 4_000_000_000,
     'min_free_bytes': 2_000_000_000, 'stale_after_seconds': 7200,
@@ -253,7 +257,7 @@ def compose_invocation(cfg, *args):
     # Explicit config is authoritative, not inherited interactive shell variables.
     private = {f'{app.upper()}_{suffix}' for app in APPS for suffix in ('SECRET_FILE', 'IMAGE')}
     env = {k: v for k, v in os.environ.items() if k not in private | {
-        'DATA_ROOT', 'EDGE_IMAGE', 'ATHENAEUM_IMAGE',
+        'DATA_ROOT', 'EDGE_IMAGE', 'ATHENAEUM_IMAGE', 'ACCOUNT_ORIGIN',
         'RUNTIME_UID', 'RUNTIME_GID', 'SITE_DOMAIN', 'ACME_EMAIL',
         'LOCAL_HTTP_PORT', 'LOCAL_HTTPS_PORT', 'COMPOSE_FILE', 'COMPOSE_PROJECT_NAME',
         'COMPOSE_PROFILES', 'COMPOSE_ENV_FILES'}}

@@ -14,6 +14,8 @@ Guides 1 and 2 describe a fresh installation or a replacement after a disaster. 
 
 ## Development
 
+- [Google login](development/google-login.md) — Google credentials, domain verification and the account pilot.
+
 - [Site development](development/site-development.md) — pinned Node toolchain, source layout, and tests.
 - [Local stack](development/local-stack.md) — HTTPS and classroom workflow testing with disposable local data.
 - [Image builds](development/image-builds.md) — independent Fish builder entries, Docker Hub tags, and release checks.
@@ -25,3 +27,5 @@ Guides 1 and 2 describe a fresh installation or a replacement after a disaster. 
 
 - [Architecture and application contracts](reference/architecture.md) — services, networking, files, and integration requirements.
 - [On-demand applications](reference/sablier.md) — separate Sablier groups, session tiers by app weight, loading theme and verification.
+
+- [Shared accounts](reference/accounts.md) — identity, guest linking, performance and recovery contracts.

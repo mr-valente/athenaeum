@@ -88,7 +88,9 @@ def create_archive(cfg, staging, images):
     payload = staging / 'payload'
     payload.mkdir(mode=0o700)
     entries = {}
-    for app in APPS:
+    # Account identities must be at least as new as captured classroom links.
+    snapshot_order = [app for app in APPS if app != 'accounts'] + (['accounts'] if 'accounts' in APPS else [])
+    for app in snapshot_order:
         key_before = digest(regular(secret_path(cfg, app)))
         metadata = None
         if app in sources:

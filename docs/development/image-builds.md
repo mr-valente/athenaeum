@@ -6,11 +6,11 @@ Build on the workstation, publish to Docker Hub, and deploy manually with [Guide
 
 | Build project | Source recipe | Moving images | Retained version examples |
 | --- | --- | --- | --- |
-| `athenaeum` | `athenaeum/docker/compose.yaml` | `valentemath/athenaeum:latest`, `:latest-edge` | `:v0.1.0`, `:v0.1.0-edge` |
+| `athenaeum` | `athenaeum/docker/compose.yaml` | `valentemath/athenaeum:latest`, `:latest-edge`, `:latest-accounts` | `:v0.1.0`, `:v0.1.0-edge`, `:v0.1.0-accounts` |
 | `quacktuaries` | `quacktuaries/docker/compose.yaml` | `valentemath/quacktuaries:latest`, `:latest-athenaeum` | `:v0.1.0`, `:v0.1.0-athenaeum` |
 | `bernoulli` | `bernoulli/docker/compose.yaml` | `valentemath/bernoulli:latest`, `:latest-athenaeum` | `:v0.1.0`, `:v0.1.0-athenaeum` |
 
-The projects have independent version counters. Each build publishes both of its image lines at one version. Each app's standalone image serves at the root path; the hosted variant defaults to production mode and the app's prefix. Secrets and proxy trust are runtime configuration.
+The projects have independent version counters. Each build publishes all of its image lines at one version. Each app's standalone image serves at the root path; the hosted variant defaults to production mode and the app's prefix. Secrets and proxy trust are runtime configuration.
 
 ## Shared Fish builder
 
@@ -19,7 +19,7 @@ The workstation's `build` function reads `~/.config/builder/builds.yaml` and rec
 ```yaml
 projects:
   athenaeum:
-    description: Athenaeum ARM64 site and edge images
+    description: Athenaeum ARM64 site, edge and account images
     directory: athenaeum/docker
     recipe: compose-release
     image: valentemath/athenaeum
@@ -37,6 +37,9 @@ projects:
       edge:
         source_tag: latest-edge
         tags: latest-edge {app}-edge
+      accounts:
+        source_tag: latest-accounts
+        tags: latest-accounts {app}-accounts
   quacktuaries:
     description: Quacktuaries standalone and Athenaeum image lines
     directory: quacktuaries/docker
@@ -113,10 +116,13 @@ The Compose recipes also work directly. For example, from the Athenaeum checkout
 ATHENAEUM_VERSION=0.1.0 docker compose -f docker/compose.yaml build --build-arg ATHENAEUM_VERSION=0.1.0
 docker tag valentemath/athenaeum:latest valentemath/athenaeum:v0.1.0
 docker tag valentemath/athenaeum:latest-edge valentemath/athenaeum:v0.1.0-edge
+docker tag valentemath/athenaeum:latest-accounts valentemath/athenaeum:v0.1.0-accounts
 docker push valentemath/athenaeum:latest
 docker push valentemath/athenaeum:v0.1.0
 docker push valentemath/athenaeum:latest-edge
 docker push valentemath/athenaeum:v0.1.0-edge
+docker push valentemath/athenaeum:latest-accounts
+docker push valentemath/athenaeum:v0.1.0-accounts
 ```
 
 For Quacktuaries or Bernoulli, run the app's own `docker/compose.yaml` with `QUACKTUARIES_VERSION` or `BERNOULLI_VERSION`, then tag/push both `latest` and `latest-athenaeum` with the matching version suffixes. Direct Docker commands do not update the shared Fish version state; reconcile that state before returning to the helper. During disaster recovery, prefer pulling the retained image digest that matches the backup over rebuilding historical dependencies.

@@ -61,7 +61,7 @@ def main():
         'region': ask('Oracle region', token), 'namespace': ask('Object Storage namespace', token),
         'bucket': ask('Backup bucket', token, 'athenaeum-backups')}}
     config['bucket_cap_bytes'] = int(ask('Backup bucket cap in bytes', r'[1-9][0-9]*', '8000000000'))
-    environment = f'SITE_DOMAIN={domain}\nACME_EMAIL={email}\n'
+    environment = f'SITE_DOMAIN={domain}\nACME_EMAIL={email}\nACCOUNT_ORIGIN=https://{domain}\n'
     # Validate both candidate files privately before creating either real file.
     # JSON serialization avoids quoting mistakes in hand-written configuration.
     with tempfile.TemporaryDirectory(prefix='athenaeum-config-') as temp:

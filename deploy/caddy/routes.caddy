@@ -5,6 +5,23 @@ header >Referrer-Policy strict-origin-when-cross-origin
 
 import light /quacktuaries quacktuaries Quacktuaries
 import light /bernoulli bernoulli Bernoulli
+# Shared identity is infrastructure: these routes never pass through Sablier.
+handle /internal/* {
+	respond 404
+}
+handle /auth/* {
+	reverse_proxy accounts:8000
+}
+handle /account {
+	redir /account/ 308
+}
+handle /account/* {
+	respond /account/_health 404
+	reverse_proxy accounts:8000
+}
 handle {
-	reverse_proxy athenaeum:8080
+	reverse_proxy athenaeum:8080 {
+		# Static content has no use for browser identity or OAuth state.
+		header_up -Cookie
+	}
 }

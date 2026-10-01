@@ -1,0 +1,71 @@
+annotated-doc==0.0.5
+    # via fastapi
+annotated-types==0.8.0
+    # via pydantic
+anyio==4.15.1
+    # via
+    #   httpx
+    #   starlette
+authlib==1.7.0
+    # via -r accounts/requirements.txt
+certifi==2026.7.22
+    # via
+    #   httpcore
+    #   httpx
+cffi==2.1.1
+    # via cryptography
+click==8.5.0
+    # via uvicorn
+cryptography==50.0.2
+    # via
+    #   authlib
+    #   joserfc
+fastapi==0.142.2
+    # via -r accounts/requirements.txt
+h11==0.16.0
+    # via
+    #   httpcore
+    #   uvicorn
+httpcore==1.0.9
+    # via httpx
+httpx==0.28.1
+    # via -r accounts/requirements.txt
+idna==3.20
+    # via
+    #   anyio
+    #   httpx
+itsdangerous==2.2.0
+    # via -r accounts/requirements.txt
+jinja2==3.1.6
+    # via -r accounts/requirements.txt
+joserfc==1.7.5
+    # via authlib
+markupsafe==3.0.3
+    # via jinja2
+opentelemetry-api==1.45.0
+    # via fastapi
+pycparser==3.0
+    # via cffi
+pydantic==2.13.5
+    # via fastapi
+pydantic-core==2.46.5
+    # via pydantic
+python-multipart==0.0.32
+    # via -r accounts/requirements.txt
+starlette==1.7.0
+    # via fastapi
+typing-extensions==4.16.0
+    # via
+    #   anyio
+    #   fastapi
+    #   opentelemetry-api
+    #   pydantic
+    #   pydantic-core
+    #   starlette
+    #   typing-inspection
+typing-inspection==0.4.4
+    # via
+    #   fastapi
+    #   pydantic
+uvicorn==0.54.0
+    # via -r accounts/requirements.txt

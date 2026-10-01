@@ -31,11 +31,12 @@ def operate(cfg, command, visible=False):
         docker(cfg, 'up', '--detach', '--no-build', '--pull', 'never', '--wait', '--wait-timeout', '120')
         # Compose recreates a service when its definition changes, not when a file
         # it mounts does, and Git replaces sablier.yaml beneath the container's
-        # single-file mount. Recreate Sablier every time so the checkout's policy,
-        # theme and assets are the ones running. Apps stay up; Sablier adopts them
+        # single-file mount. The account credential configurator also replaces a
+        # mounted file atomically. Recreate both infrastructure services so policy,
+        # assets and Google credentials are re-read. Apps stay up; Sablier adopts them
         # at the default session until verify renews each at its tier.
-        say('Recreating Sablier so the checked-out policy, theme and assets are re-read...')
+        say('Recreating accounts and Sablier to re-read credentials, policy and assets...')
         docker(cfg, 'up', '--detach', '--no-build', '--pull', 'never', '--no-deps', '--force-recreate',
-               '--wait', '--wait-timeout', '120', 'sablier')
+               '--wait', '--wait-timeout', '120', 'accounts', 'sablier')
         say(compose(cfg, 'ps').decode())
         say('PASS: containers healthy. Run athenaeumctl verify and check a classroom workflow.\nImage rollback is manual; persistent data has not been replaced.')

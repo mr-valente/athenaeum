@@ -151,10 +151,10 @@ class CommandTests(unittest.TestCase):
                 self.assertIn('--no-build', event)
                 self.assertEqual(event[event.index('--pull') + 1], 'never')
             if ups:
-                # The stack is applied first; then only Sablier is recreated, so mounted
-                # policy and theme changes take effect without touching the apps.
+                # Re-read replaced account credentials and Sablier policy while
+                # leaving the classroom services outside forced recreation.
                 self.assertNotIn('--force-recreate', ups[0])
-                self.assertEqual(ups[1][-1], 'sablier')
+                self.assertEqual(ups[1][-2:], ('accounts', 'sablier'))
                 self.assertIn('--force-recreate', ups[1])
                 self.assertIn('--no-deps', ups[1])
 

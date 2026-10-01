@@ -70,3 +70,11 @@ TEST_BASE_URL=https://localhost:4385 node tests/browser/ecosystem.mjs --verify-r
 Use your configured HTTPS port. The runner forces connections to loopback and verifies the generated local CA. It checks Quacktuaries' teacher/student flows, cookies, exports, static files, and persistence across replacement, plus Bernoulli's routing, redirect and project page. Local screenshots are not final style acceptance.
 
 Use [Guide 2](../guides/2-host-setup.md) for production setup and its live HTTPS, ARM, storage and reboot checkpoints.
+
+## Shared accounts
+
+The always-running accounts service is registered for state, health and recovery.
+Its database is under `apps/accounts/data/app.db` and its private secret file
+contains the account session secret and optional Google credentials. Classroom
+backups include account links and pending performance deliveries. See the
+[account contract](../reference/accounts.md) and [Google setup](../development/google-login.md).

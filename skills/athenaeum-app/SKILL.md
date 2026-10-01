@@ -5,7 +5,7 @@ description: Create or integrate an independently deployable Athenaeum applicati
 
 # Athenaeum apps
 
-Locate the Athenaeum checkout from the prompt or sibling `athenaeum/`. Read its `README.md`, `docs/reference/architecture.md`, `style.md`, and current Compose/Caddy files. The numbered guides describe the current system: 1 provisions Oracle, 2 configures a host, 3 covers daily commands, and 4 covers backup/recovery. Preserve unrelated work and keep deployment within the user's authorized scope.
+Locate the Athenaeum checkout from the prompt or sibling `athenaeum/`. Read its `README.md`, `docs/reference/architecture.md`, `docs/reference/accounts.md`, `style.md`, and current Compose/Caddy files. The numbered guides describe the current system: 1 provisions Oracle, 2 configures a host, 3 covers daily commands, 4 covers authoring, 5 covers backup/recovery. Google setup is in `docs/development/google-login.md`. Preserve unrelated work and keep deployment within the user's authorized scope.
 
 ## Integrate the application
 
@@ -16,13 +16,56 @@ Choose the framework that fits the app and keep it independently deployable. Add
 - A Markdown page in `content/projects/`, the editorial project catalog.
 - Explicit non-root ownership, health checks, resource/log limits, read-only root filesystem where supported, and graceful shutdown.
 
-Give browser cookies unique names, the app's path, and production security flags. Same-domain paths share a browser origin, and owned apps are trusted network peers. Apps serving untrusted executable content need a separate origin/boundary. Ordinary apps receive neither Docker nor OCI credentials.
+Give app-local browser cookies unique names, the app's path, and production security flags. Same-domain paths share a browser origin, and owned apps are trusted network peers. Apps serving untrusted executable content need a separate origin/boundary. Ordinary apps receive neither Docker nor OCI credentials.
 
 Apply the current shared CSS contract from `design/` and the decisions in `style.md`: the After hours theme. Bundle a pinned copy of shared assets in each consumer rather than fetching mutable styles at runtime.
 
+## Use shared accounts and record performance
+
+Hosted apps use the always-running `accounts` service. Preserve standalone and
+classroom guest access; do not add another Google client or share signing keys
+between apps. Add Login/account-overview and Save activity links, with local
+return paths. Only the central service issues the shared root-scoped cookie.
+
+Keep the public interface understated: brief labels and practical instructions.
+Use the main website as the Google application home page and link Privacy in
+its footer. Do not add an ecosystem landing page, login announcements, or
+explanations of the account architecture to app screens.
+
+Read `docs/reference/accounts.md` for the v1 API. Python apps bundle pinned copies
+of `accounts/client/ecosystem.py` and its account template, plus an app-owned
+snapshot adapter. Other frameworks implement the same private API and ownership
+rules. Set `ACCOUNT_SERVICE_URL=http://accounts:8000` and a stable
+`ATHENAEUM_APP_ID`. Register the app's secret mount in `ACCOUNTS_APP_SECRETS` and
+derive its distinct credential using the documented HMAC. Keep credentials,
+Google secrets, and raw shared tokens out of client scripts.
+
+Keep local teacher/player/classroom IDs. Resolve identity server-side and use
+additive account links. Recover linked profiles by account ID. Existing guests
+need explicit saving, CSRF protection and browser rejoin-token proof. Names and
+email never prove ownership. Never silently merge or transfer Google-owned
+profiles. Account switching and shared sign-out must prevent stale app cookies
+from authorizing the previous account. Preserve classroom ownership checks;
+Google login grants no global teacher/admin privilege.
+
+For performance-bearing apps, define finalized server-generated metrics plus
+activity settings. Use stable app/source IDs and monotonic revisions. Write a
+durable outbox in the gameplay transaction; retry outside it with duplicate
+protection. Reconcile on startup and retain pending rows through sleep and
+replacement. Show pending synchronization in the account UI. Publish only
+Google-linked results after answers are revealed or an activity is completed.
+Apps without performance explicitly declare that in their integration notes.
+
+Test cross-app identity, cross-device recovery, guest operation, explicit and
+unauthorized linking, account switches/revocations, hidden unrevealed results,
+outages and duplicate/stale retries. Keep adapter copies synchronized. For other
+frameworks/databases prove equivalent transaction and restore behavior. Accounts
+is infrastructure and never gets Sablier labels. Snapshot its database after
+classroom databases so captured account references remain recoverable.
+
 ## Give each app its own idle lifecycle
 
-Add `sablier.enable: 'true'` and `sablier.group: ${COMPOSE_PROJECT_NAME:-athenaeum}-<service>` to the hosted Compose service. Never label the main `athenaeum` website, `edge`, or `sablier`. Never share a group between independent apps. Caddy's `SABLIER_GROUP_PREFIX` must match Compose's project prefix. Keep standalone images free of Athenaeum-specific lifecycle policy.
+Add `sablier.enable: 'true'` and `sablier.group: ${COMPOSE_PROJECT_NAME:-athenaeum}-<service>` to the hosted Compose service. Never label the main `athenaeum` website, `accounts`, `edge`, or `sablier`. Never share a group between independent apps. Caddy's `SABLIER_GROUP_PREFIX` must match Compose's project prefix. Keep standalone images free of Athenaeum-specific lifecycle policy.
 
 Use `deploy/sablier/sablier.yaml` as the common policy: Docker stop strategy, no destructive startup stop, and automatic adoption of externally started apps (also the self-heal for a Sablier 1.18.0 store race that can leave an idle app running; keep it on). Its `default-duration` is the shortest tier and reaches only adopted apps; the session an app actually gets comes from its route's tier, sliding from the last request. Compose deployment starts apps normally; they sleep after inactivity. HTTP polling renews the session; a background job or an idle open WebSocket does not. Identify workloads that must keep running before opting them in.
 
@@ -58,7 +101,7 @@ What a tier does not change, and what to check alongside it:
 
 ## Own the image and release
 
-Follow `docs/development/image-builds.md`. Each app owns its source repository, Dockerfile/Compose recipe, Docker Hub repository (`valentemath/<app>`), shared Fish `builds.yaml` entry and SemVer record in `versions.txt`. Releasing it must not build or increment Athenaeum or another app. Athenaeum's `docker/compose.yaml` builds only its website and edge.
+Follow `docs/development/image-builds.md`. Each app owns its source repository, Dockerfile/Compose recipe, Docker Hub repository (`valentemath/<app>`), shared Fish `builds.yaml` entry and SemVer record in `versions.txt`. Releasing it must not build or increment Athenaeum or another app. Athenaeum's `docker/compose.yaml` builds its website, edge, and shared account service.
 
 Use Tailgate's multiple-output pattern: one `build <app>` builds and publishes both variants at the same app version:
 

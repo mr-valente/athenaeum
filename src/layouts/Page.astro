@@ -18,7 +18,7 @@ const { title, description, pages = [] } = Astro.props;
 const canonical = new URL(Astro.url.pathname, Astro.site);
 const home = pages.find((page) => page.url === '/');
 const isHome = Astro.url.pathname === '/';
-const navigation = sortedPages(pages.filter((page) => parentUrl(page.url) === '/'));
+const navigation = sortedPages(pages.filter((page) => parentUrl(page.url) === '/' && page.url !== '/privacy/'));
 const breadcrumbs: ContentPage[] = [];
 for (let url = parentUrl(Astro.url.pathname); url; url = parentUrl(url)) {
   const ancestor = pages.find((page) => page.url === url);
@@ -48,6 +48,7 @@ for (let url = parentUrl(Astro.url.pathname); url; url = parentUrl(url)) {
       </a>
       <nav aria-label="Main navigation">
         {navigation.map((page) => <a href={page.url} aria-current={Astro.url.pathname === page.url ? 'page' : Astro.url.pathname.startsWith(page.url) ? 'true' : undefined}>{page.title}</a>)}
+        <a href="/account/">Login</a>
         <a class="ath-github-profile" href="https://github.com/mr-valente" aria-label="mr-valente on GitHub" title="mr-valente on GitHub"><GithubIcon /></a>
       </nav>
     </header>
@@ -59,7 +60,7 @@ for (let url = parentUrl(Astro.url.pathname); url; url = parentUrl(url)) {
     </main>
     <footer class="ath-footer">
       <p>{home?.title ?? 'Athenaeum'} <span aria-hidden="true">/</span> Be excellent<span aria-hidden="true">_</span></p>
-      <p>Stay curious<span aria-hidden="true">_</span></p>
+      <p>Stay curious<span aria-hidden="true">_</span> <span aria-hidden="true">/</span> <a href="/privacy/">Privacy</a></p>
     </footer>
   </body>
 </html>

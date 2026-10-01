@@ -41,6 +41,18 @@ with sqlite3.connect('file:/data/app.db?mode=ro',uri=True) as db:
    data=json.load(r)
    assert data['session']['status']==row[1]
 print('Restored application HTTP and saved session state verified.')
+''', 'accounts': r'''
+import json,sqlite3,urllib.request
+with urllib.request.urlopen('http://127.0.0.1:8000/_health',timeout=3) as r:
+ assert r.status==200 and json.load(r)['status']=='ok'
+with urllib.request.urlopen('http://127.0.0.1:8000/account/',timeout=3) as r:
+ assert b'<h1>Account</h1>' in r.read()
+with sqlite3.connect('file:/data/app.db?mode=ro',uri=True) as db:
+ assert db.execute('PRAGMA integrity_check').fetchone()[0]=='ok'
+ assert not db.execute('PRAGMA foreign_key_check').fetchall()
+ for table in ('users','identities','account_sessions','performance','account_audit'):
+  db.execute('SELECT count(*) FROM '+table).fetchone()
+print('Restored accounts database and HTTP verified without contacting Google.')
 '''}
 
 

@@ -22,3 +22,11 @@ services:
       dockerfile: docker/edge.Dockerfile
       labels:
         org.opencontainers.image.version: ${ATHENAEUM_VERSION:-dev}
+  accounts:
+    <<: *build
+    image: valentemath/athenaeum:latest-accounts
+    build:
+      context: ..
+      dockerfile: accounts/Dockerfile
+      args:
+        ATHENAEUM_VERSION: ${ATHENAEUM_VERSION:-dev}

@@ -23,6 +23,8 @@
 !docker/caddy.json
 !tests/
 !tests/**
+!accounts/
+!accounts/**
 
 # Defense in depth for accidentally misplaced local configuration.
 **/.env*

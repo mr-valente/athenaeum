@@ -1,4 +1,7 @@
 [
   "quacktuaries",
-  "bernoulli"
+  "bernoulli",
+  "account",
+  "auth",
+  "internal"
 ]

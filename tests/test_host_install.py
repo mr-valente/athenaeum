@@ -33,7 +33,7 @@ class HostSetupTests(unittest.TestCase):
         globals_ = install.__globals__
         cfg = {'mode': 'production', 'data_root': '/srv/athenaeum', 'state_dir': '/var/lib/athenaeum',
                'age_binary': '/opt/athenaeum/tools/age', 'filesystem_uuid': '1234-abcd',
-               'session_secret': '/etc/athenaeum/key', 'bernoulli_session_secret': '/etc/athenaeum/bernoulli-key',
+               'accounts_session_secret': '/etc/athenaeum/accounts-key', 'session_secret': '/etc/athenaeum/key', 'bernoulli_session_secret': '/etc/athenaeum/bernoulli-key',
                'compose_env': '/etc/athenaeum/compose.env',
                'compose_files': ['/opt/athenaeum/stack/compose.yaml'], 'monitor_object': 'monitor-host.json'}
         with patch.dict(globals_, {'load_config': lambda p: cfg, 'guard_mount': lambda c: None,
@@ -50,7 +50,7 @@ class HostSetupTests(unittest.TestCase):
     def test_key_setup_refuses_orphaned_data_and_never_replaces_existing_key(self):
         ns = runpy.run_path(str(OPS / 'install-host'))
         prepare = ns['prepare_session_key']
-        for app, key in (('quacktuaries', 'session_secret'), ('bernoulli', 'bernoulli_session_secret')):
+        for app, key in (('quacktuaries', 'session_secret'), ('bernoulli', 'bernoulli_session_secret'), ('accounts', 'accounts_session_secret')):
             with self.subTest(app=app), tempfile.TemporaryDirectory() as temp:
                 root = Path(temp)
                 data = root / 'apps' / app / 'data'

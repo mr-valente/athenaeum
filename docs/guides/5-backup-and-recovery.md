@@ -1,4 +1,4 @@
-# 4 — Backup and recovery
+# 5 — Backup and recovery
 
 Keep an encrypted backup outside Oracle, its SHA256, the private age identity, source commits, and matching image versions/digests in your private recovery records. Store the identity separately from the archive. The VM's scheduled backups need only the public age recipient.
 
@@ -6,12 +6,12 @@ Keep an encrypted backup outside Oracle, its SHA256, the private age identity, s
 
 Each verified snapshot contains:
 
-- Each registered app's SQLite database (Quacktuaries, Bernoulli), captured through SQLite's online backup API.
-- Each app's persistent session-signing key.
+- Each registered SQLite database (Quacktuaries, Bernoulli, accounts), captured through SQLite's online backup API.
+- Each app's persistent session-signing key, plus the account service's private Google credentials.
 - Compose definitions, Compose environment, and recovery configuration.
 - A manifest with file checksums, per-app database schema/counts, architecture and running image IDs/digests.
 
-Caddy's certificate cache is not archived; certificates are reissued on a replacement host. The static website is recovered from Git and its image. Neither app has registered uploads. An app that has not started yet is archived as its key alone. Adding application data requires explicit backup/restore support. Snapshots made before Bernoulli's registration (manifest schema 1) remain restorable and contain only Quacktuaries.
+Caddy's certificate cache is not archived; certificates are reissued on a replacement host. The static website is recovered from Git and its image. No registered service has uploads. An app that has not started yet is archived as its key alone. Adding application data requires explicit backup/restore support. Snapshots made before Bernoulli's registration (manifest schema 1) remain restorable and contain only Quacktuaries. Snapshots made before accounts was registered contain no shared account history.
 
 Uploads are downloaded and checked by SHA256 before their commit object is written and verified. Only committed snapshots appear in `athenaeumctl list`. A restore drill separately proves decryption and application startup.
 
@@ -241,3 +241,11 @@ Then run `athenaeumctl docker pull --deploy` and `athenaeumctl verify`. Use `BER
 After verifying the offsite copy and recovered applications, remove only the specific temporary identity, export, transfer directory or restored inspection directory you created. Restored plaintext includes the signing keys and configuration. Inspect directory contents and choose exact paths; do not use broad wildcards against live storage. Keep `/srv/athenaeum`, `/etc/athenaeum`, installed operations/tools, the state directory, retained Docker images and the independent recovery identity.
 
 Installer rollback directories under `/var/lib/athenaeum/install-rollback-*` can contain private configuration. Retain the recent one while verifying a tool update; remove selected older copies only after confirming their replacement works. Deleting files is cleanup, not guaranteed forensic erasure from storage snapshots.
+
+## Shared accounts
+
+The always-running accounts service is registered for state, health and recovery.
+Its database is under `apps/accounts/data/app.db` and its private secret file
+contains the account session secret and optional Google credentials. Classroom
+backups include account links and pending performance deliveries. See the
+[account contract](../reference/accounts.md) and [Google setup](../development/google-login.md).

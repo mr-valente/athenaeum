@@ -107,6 +107,29 @@ services:
     mem_limit: 256m
     networks: [apps]
 
+  accounts:
+    <<: *runtime
+    image: ${ACCOUNTS_IMAGE:-valentemath/athenaeum:latest-accounts}
+    user: ${RUNTIME_UID:-10001}:${RUNTIME_GID:-10001}
+    mem_limit: 256m
+    environment:
+      APP_ENV: production
+      ACCOUNT_ORIGIN: ${ACCOUNT_ORIGIN:-https://valentemath.com}
+      DB_PATH: /data/app.db
+      SESSION_SECRET_FILE: /run/secrets/accounts_session
+      ACCOUNTS_APP_SECRETS: '{"bernoulli":"/run/secrets/bernoulli_session","quacktuaries":"/run/secrets/quacktuaries_session"}'
+      FORWARDED_ALLOW_IPS: '*'
+    secrets: [accounts_session, bernoulli_session, quacktuaries_session]
+    volumes:
+      - type: bind
+        source: ${DATA_ROOT:-/srv/athenaeum}/apps/accounts/data
+        target: /data
+        bind: {create_host_path: false}
+    tmpfs:
+      - /tmp:size=16777216,mode=1777,noexec,nosuid,nodev
+    # Identity infrastructure stays awake and needs outbound HTTPS to Google.
+    networks: [apps, default]
+
   quacktuaries:
     <<: *runtime
     labels:
@@ -121,6 +144,8 @@ services:
       PORT: '8000'
       DB_PATH: /data/app.db
       SESSION_SECRET_FILE: /run/secrets/quacktuaries_session
+      ACCOUNT_SERVICE_URL: http://accounts:8000
+      ATHENAEUM_APP_ID: quacktuaries
       # Only our trusted containers can reach this unpublished app port.
       FORWARDED_ALLOW_IPS: '*'
     secrets: [quacktuaries_session]
@@ -147,6 +172,8 @@ services:
       PORT: '8000'
       DB_PATH: /data/app.db
       SESSION_SECRET_FILE: /run/secrets/bernoulli_session
+      ACCOUNT_SERVICE_URL: http://accounts:8000
+      ATHENAEUM_APP_ID: bernoulli
       # Only our trusted containers can reach this unpublished app port.
       FORWARDED_ALLOW_IPS: '*'
     secrets: [bernoulli_session]
@@ -168,6 +195,8 @@ networks:
     internal: true
 
 secrets:
+  accounts_session:
+    file: ${ACCOUNTS_SECRET_FILE:-/etc/athenaeum/accounts-session-secret}
   quacktuaries_session:
     file: ${QUACKTUARIES_SECRET_FILE:-/etc/athenaeum/quacktuaries-session-secret}
   bernoulli_session:

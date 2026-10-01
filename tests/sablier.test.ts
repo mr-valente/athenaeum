@@ -11,6 +11,17 @@ const routes = readFileSync(new URL('../deploy/caddy/routes.caddy', import.meta.
 // The session tiers and their defaults; the table in skills/athenaeum-app/SKILL.md must agree.
 const tiers: Record<string, string> = { light: '72h', middle: '12h', heavy: '4h', superheavy: '1h' };
 
+test('shared accounts stays awake with private API and outbound Google access', () => {
+  const account = compose.services.accounts;
+  assert.equal(account.labels, undefined);
+  assert.equal(account.ports, undefined);
+  assert.deepEqual(account.networks, ['apps', 'default']);
+  assert.deepEqual(account.secrets, ['accounts_session', 'bernoulli_session', 'quacktuaries_session']);
+  assert(routes.includes('handle /internal/*'));
+  assert(routes.includes('handle /auth/*'));
+  assert(routes.includes('header_up -Cookie'));
+});
+
 test('only app services opt in, with independent project-qualified groups', () => {
   const managed = Object.entries(compose.services).filter(([, service]: [string, any]) => service.labels?.['sablier.enable'] === 'true');
   assert.deepEqual(managed.map(([name]) => name), ['quacktuaries', 'bernoulli']);

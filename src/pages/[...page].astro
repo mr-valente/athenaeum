@@ -16,7 +16,7 @@ export async function getStaticPaths() {
 
 type Props = InferGetStaticPropsType<typeof getStaticPaths>;
 const { page, pages } = Astro.props;
-const children = sortedPages(pages.filter((entry) => parentUrl(entry.url) === page.url));
+const children = sortedPages(pages.filter((entry) => parentUrl(entry.url) === page.url && entry.url !== '/privacy/'));
 ---
 
 <Page title={page.title} description={page.description} pages={pages}>

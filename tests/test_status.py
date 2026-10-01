@@ -65,10 +65,15 @@ class StatusTests(unittest.TestCase):
         self.assertEqual(result, 1)
         self.assertIn('ERROR: unexpected container set: athenaeum missing, edge duplicate, stray unregistered', output.getvalue())
 
+    def test_accounts_must_stay_awake(self):
+        containers = [{'Service': name, 'State': 'running', 'Health': 'healthy'} for name in cli.SERVICES]
+        next(c for c in containers if c['Service'] == 'accounts').update(State='exited', Health='', ExitCode=0)
+        self.assertFalse(containers_healthy(containers))
+
     def test_verification_requires_awake_apps_and_rejects_ambiguous_states(self):
         containers = [{'Service': name, 'State': 'running', 'Health': 'healthy'} for name in cli.SERVICES]
         for container in containers:
-            if container['Service'] in APPS:
+            if container['Service'] in APPS and not APPS[container['Service']].get('always_awake'):
                 container.update(State='exited', Health='', ExitCode=0)
         self.assertTrue(containers_healthy(containers))
         self.assertFalse(containers_healthy(containers, allow_sleeping=False))
@@ -82,7 +87,7 @@ class StatusTests(unittest.TestCase):
         def stack(app_state):
             containers = [{'Service': name, 'State': 'running', 'Health': 'healthy'} for name in cli.SERVICES]
             for container in containers:
-                if container['Service'] in APPS:
+                if container['Service'] in APPS and not APPS[container['Service']].get('always_awake'):
                     container.update(app_state)
             return {'containers': containers}
 
