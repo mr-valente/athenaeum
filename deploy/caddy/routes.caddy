@@ -13,7 +13,10 @@ handle /auth/* {
 	reverse_proxy accounts:8000
 }
 handle /account {
-	redir /account/ 308
+	route {
+		uri replace /account /account/ 1
+		redir {uri} 308
+	}
 }
 handle /account/* {
 	respond /account/_health 404

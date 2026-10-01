@@ -133,6 +133,11 @@ class ContainerEcosystem(EcosystemTests):
             time.sleep(.1)
         else:
             self.fail(docker('logs', edge)[-2000:])
+        for query in ('', '?source=setup', '?return_to=%2Fbernoulli%2F&source=setup',
+                      '?return_to=%2Faccount%2Fexport'):
+            response = httpx.get(base + '/account' + query, verify=False, follow_redirects=False)
+            self.assertEqual(response.status_code, 308)
+            self.assertEqual(response.headers['location'], '/account/' + query)
         for path in ('/internal/identity', '/account/_health', '/bernoulli/_health', '/quacktuaries/_health'):
             self.assertEqual(httpx.get(base + path, verify=False).status_code, 404)
         screenshot = '/tmp/athenaeum-account-overview.png'
