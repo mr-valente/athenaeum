@@ -116,11 +116,41 @@ class AccountTests(unittest.TestCase):
                             google_client_id='test.apps.googleusercontent.com', google_client_secret='private')
         app = create_app(settings)
         with TestClient(app, base_url=settings.origin) as client:
-            response = client.get('/auth/google/callback?state=forged&code=forged', follow_redirects=False)
+            with self.assertLogs('accounts.main', level='WARNING') as logs:
+                response = client.get('/auth/google/callback?state=forged&code=forged', follow_redirects=False)
             self.assertEqual(response.status_code, 303)
             self.assertIn('google-login-failed', response.headers['location'])
+            self.assertIn('phase=callback exception=MismatchingStateError error=mismatching_state', logs.output[0])
             with app.state.database.connect() as db:
                 self.assertEqual(db.execute('SELECT count(*) FROM users').fetchone()[0], 0)
+
+    def test_google_diagnostics_exclude_provider_details_and_credentials(self):
+        from authlib.integrations.base_client.errors import OAuthError
+        settings = Settings(Path(self.temp.name) / 'diagnostics.db', 'secret' * 8,
+                            origin=self.settings.origin, production=True,
+                            google_client_id='test.apps.googleusercontent.com', google_client_secret='private')
+        app = create_app(settings)
+        for error, expected in (('invalid_client', 'invalid_client'), ('secret-provider-value', 'unspecified')):
+            failure = OAuthError(error=error, description='private-secret code=sensitive-code token=private-token')
+            with TestClient(app, base_url=settings.origin) as client:
+                for method, path, phase in (('authorize_redirect', '/auth/google', 'authorization'),
+                                             ('authorize_access_token', '/auth/google/callback', 'callback')):
+                    with patch.object(app.state.oauth.google, method, AsyncMock(side_effect=failure)):
+                        with self.assertLogs('accounts.main', level='WARNING') as logs:
+                            if phase == 'authorization':
+                                response = client.post(path, data={'csrf_token': self.csrf(client)}, follow_redirects=False)
+                            else:
+                                response = client.get(path, follow_redirects=False)
+                    self.assertEqual(response.status_code, 303)
+                    self.assertEqual(logs.output, [f'WARNING:accounts.main:Google sign-in failed: phase={phase} exception=OAuthError error={expected} claim=unspecified'])
+                    with app.state.database.connect() as db:
+                        self.assertEqual(db.execute('SELECT count(*) FROM users').fetchone()[0], 0)
+        from accounts.main import log_google_failure
+        from joserfc.errors import InvalidClaimError
+        for claim, expected in (('iss', 'iss'), ('private-token', 'unspecified')):
+            with self.assertLogs('accounts.main', level='WARNING') as logs:
+                log_google_failure('callback', InvalidClaimError(claim))
+            self.assertEqual(logs.output, [f'WARNING:accounts.main:Google sign-in failed: phase=callback exception=InvalidClaimError error=invalid_claim claim={expected}'])
 
     def test_provider_success_uses_subject_and_never_merges_guest(self):
         settings = Settings(Path(self.temp.name) / 'oauth.db', 'secret' * 8,
@@ -193,16 +223,20 @@ class AccountTests(unittest.TestCase):
                     google_client_id='test.apps.googleusercontent.com', google_client_secret='private')
                 app = create_app(settings)
                 google = app.state.oauth.google
-                google.server_metadata.update({
-                    '_loaded_at': time.time(), 'issuer': 'https://accounts.google.com',
+                metadata = {
+                    'issuer': 'https://accounts.google.com',
                     'authorization_endpoint': 'https://accounts.google.com/o/oauth2/v2/auth',
                     'token_endpoint': 'https://oauth2.googleapis.com/token',
-                    'jwks': {'keys': [trusted.as_dict(private=False)]},
+                    'jwks_uri': 'https://www.googleapis.com/oauth2/v3/certs',
                     'id_token_signing_alg_values_supported': ['RS256'],
-                })
+                }
                 params = {}
                 exchanged = []
                 def provider(request):
+                    if str(request.url) == 'https://accounts.google.com/.well-known/openid-configuration':
+                        return httpx.Response(200, json=metadata)
+                    if str(request.url) == metadata['jwks_uri']:
+                        return httpx.Response(200, json={'keys': [trusted.as_dict(private=False)]})
                     self.assertEqual(str(request.url), 'https://oauth2.googleapis.com/token')
                     exchanged.append(parse_qs(request.content.decode()))
                     claims = {'iss': 'https://accounts.google.com', 'aud': settings.google_client_id,

@@ -1,6 +1,7 @@
 import hashlib
 import hmac
 import json
+import logging
 import secrets
 import sqlite3
 import time
@@ -20,6 +21,25 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from .config import Settings
 from .database import Database
+
+
+logger = logging.getLogger(__name__)
+
+
+def log_google_failure(phase, exc):
+    # Exception messages, provider descriptions and request URLs may contain
+    # credentials or codes. Log only the class and recognized protocol errors.
+    known_errors = {'access_denied', 'invalid_client', 'invalid_grant', 'invalid_request',
+                    'invalid_scope', 'unauthorized_client', 'server_error',
+                    'temporarily_unavailable', 'mismatching_state', 'invalid_claim',
+                    'missing_claim', 'expired_token', 'bad_signature'}
+    error = getattr(exc, 'error', None)
+    code = error if isinstance(error, str) and error in known_errors else 'unspecified'
+    claim = getattr(exc, 'claim', None)
+    known_claims = {'iss', 'aud', 'exp', 'iat', 'nonce', 'at_hash', 'sub', 'azp', 'email', 'email_verified'}
+    claim_name = claim if isinstance(claim, str) and claim in known_claims else 'unspecified'
+    logger.warning('Google sign-in failed: phase=%s exception=%s error=%s claim=%s',
+                   phase, type(exc).__name__, code, claim_name)
 
 
 def now():
@@ -200,23 +220,26 @@ def create_app(settings: Settings):
         try:
             return await oauth.google.authorize_redirect(request, settings.origin + '/auth/google/callback',
                                                           prompt='select_account')
-        except Exception:
-            # Provider diagnostics can contain credentials. Never expose them.
+        except Exception as exc:
+            log_google_failure('authorization', exc)
             return RedirectResponse('/account/?error=google-unavailable', status_code=303)
 
     @app.get('/auth/google/callback')
     async def google_callback(request: Request):
         if not settings.google_enabled:
             raise HTTPException(503, 'Google sign-in is not configured')
+        phase = 'callback'
         try:
             token = await oauth.google.authorize_access_token(request)
+            phase = 'identity'
             userinfo = token['userinfo']  # Authlib validates signature, issuer, audience, expiry and nonce.
             subject = userinfo['sub']
             if (not isinstance(subject, str) or not subject or len(subject) > 255
                     or userinfo.get('email_verified') is not True
                     or not isinstance(userinfo.get('email'), str) or not userinfo['email']):
                 raise ValueError('Missing verified identity')
-        except Exception:
+        except Exception as exc:
+            log_google_failure(phase, exc)
             request.session.clear()
             return RedirectResponse('/account/?error=google-login-failed', status_code=303)
         destination = request.session.get('return_to', '/account/')

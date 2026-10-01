@@ -259,10 +259,24 @@ redirects. Reference: [Production OAuth policies](https://developers.google.com/
 | Google sign-in is unavailable | Install both credentials and recreate the accounts container |
 | Personal account works; student account fails | Ask the Workspace administrator to review the client ID and student third-party-app access settings |
 | App name or logo is missing on Google's screen | Complete branding verification and publish the verified branding |
-| Login fails after returning from Google | Start again from the account page; allow cookies, finish within ten minutes, and check the host clock |
+| Login fails after returning from Google | Start again from the account page; allow cookies, finish within ten minutes, and check the host clock. Use the diagnostic steps below if it persists |
 | Guest results do not appear | Sign in, then explicitly save the activity from its original browser; names alone cannot recover ownership |
 | Results are waiting to synchronize | Check the app's Save activity page and accounts container health; sleeping apps retry when they wake |
 | Google client secret was lost | Rotate/create credentials in Google Console, rerun the private installer, and recreate the accounts container |
+
+For a repeated sign-in failure, retry once and run this on the host:
+
+```bash
+athenaeumctl docker logs accounts --tail 50
+```
+
+Look for `Google sign-in failed`. This line records the failing phase, exception
+class, a recognized OAuth error, and the claim name if token validation failed.
+It excludes exception messages, credentials, authorization codes and tokens.
+You can share that line to diagnose the failure.
+`invalid_client` indicates the installed credentials need checking;
+`MismatchingStateError` indicates the browser's sign-in session was lost or
+expired. A connection or timeout error indicates a failed request to Google.
 
 Google Console labels can change. The linked official documentation describes
 the current project, audience, branding, scope and client settings.
