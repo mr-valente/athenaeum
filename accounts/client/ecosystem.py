@@ -12,6 +12,7 @@ import os
 import secrets
 from datetime import datetime, timezone
 from urllib import error, request as http
+from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -57,7 +58,46 @@ def account(request):
 
 def display_name(request, fallback=''):
     user = account(request)
-    return user['name'] if user and user['kind'] == 'google' else fallback
+    return user['name'] if user else fallback
+
+
+def login_required(request, destination=None):
+    """Hosted entry points establish shared identity before creating profiles."""
+    if not ENABLED or account(request):
+        return None
+    if getattr(request.state, 'ecosystem_unavailable', False):
+        raise HTTPException(503, 'Sign-in is temporarily unavailable. Please try again.')
+    destination = destination or request.url.path + (
+        '?' + request.url.query if request.url.query else '')
+    return RedirectResponse('/account/login?' + urlencode({'return_to': destination}), status_code=303)
+
+
+def login_teacher(request, db, name):
+    """Provision or recover an app-local profile after identity is established."""
+    from app.models import Teacher
+    lock_profiles(db)
+    name = display_name(request, name)
+    linked = owned(request, db, 'teacher', Teacher)
+    if linked:
+        remember_binding(request)
+        return linked
+    existing = db.get(Teacher, request.session.get('teacher_id', ''))
+    if (existing and request.session.get('teacher_rejoin_token') == existing.rejoin_token
+            and permitted(request, db, 'teacher', existing)):
+        existing.name = name
+        if account(request) and account(request)['kind'] == 'guest':
+            bind(request, db, 'teacher', existing)
+        db.commit()
+        return existing
+    teacher = Teacher(name=name, rejoin_token=secrets.token_hex(16))
+    db.add(teacher)
+    db.flush()
+    bind(request, db, 'teacher', teacher)
+    db.commit()
+    db.refresh(teacher)
+    request.session['teacher_id'] = teacher.id
+    request.session['teacher_rejoin_token'] = teacher.rejoin_token
+    return teacher
 
 
 def lock_profiles(db):
@@ -113,7 +153,7 @@ class AccountMiddleware(BaseHTTPMiddleware):
             except (RuntimeError, KeyError):
                 request.state.ecosystem_unavailable = True
         user = account(request)
-        if user and user['kind'] == 'google':
+        if user:
             await asyncio.to_thread(sync_display_names, user)
         response = await call_next(request)
         if ENABLED:

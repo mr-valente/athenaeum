@@ -186,15 +186,20 @@ configuration at startup. Schedule deployments outside active classroom use.
 
 1. Open `https://valentemath.com/` and select **Login**.
 2. Select **Sign in with Google** and choose your account.
-3. Confirm the account overview shows the correct name and email.
+3. Confirm the account overview shows the correct name and email. Set your
+   **Display name:** if you want a different name in the apps.
 4. Open Bernoulli and Quacktuaries. Both should show the same account.
 5. Join a test classroom while signed in. Reveal a Bernoulli round or end a
    Quacktuaries game. Allow roughly 15 seconds for history to synchronize.
 6. Open **Account** and check the recorded result.
 7. Sign in to the same Google account in a second browser. Confirm the history
    and classroom identity return without copying the first browser's app cookie.
-8. Test guest access in a separate browser. After an activity, sign in and use
-   **Save activity** in that app to save only the activity you own.
+8. In a separate browser, open an app and select **Join session** or
+   **Teacher Login**. Enter a display name and select **Sign in as guest**.
+   Confirm joining asks only for a code and teacher login opens the dashboard.
+   Open the other app and confirm it uses the same name without another login.
+   After an activity, use **Save with a Google account**, then open the original
+   app's **Account** page and select **Save** for the activity you own.
 9. Use the account overview's **Sign out** button.
    Confirm the account is signed out in both apps after navigation or refresh.
 

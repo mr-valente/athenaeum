@@ -1,0 +1,9 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{% block title %}Account{% endblock %} · Valente Math</title><link rel="stylesheet" href="/account/static/account.css">
+<link rel="icon" href="/account/static/mark.svg"></head>
+<body><a class="ath-skip-link" href="#main">Skip to content</a>
+<header class="ath-header"><a class="ath-brand" href="/">Valente Math</a><nav aria-label="Account navigation"><a href="/account/">{{ 'Account' if user else 'Login' }}</a></nav></header>
+<main class="ath-page" id="main">{% block content %}{% endblock %}
+<p><a href="/privacy/">Privacy</a></p>
+</main></body></html>

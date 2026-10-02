@@ -1,0 +1,10 @@
+<div class="account-actions">
+{% if google_enabled %}<form method="post" action="/auth/google"><input type="hidden" name="csrf_token" value="{{ csrf }}"><input type="hidden" name="return_to" value="{{ return_to }}"><button class="google-signin"><img src="/account/static/google-signin.png" alt="Sign in with Google" width="180" height="40"></button></form>
+{% else %}<p>Google sign-in is unavailable.</p>{% endif %}
+{% if not user %}<form class="account-profile" method="post" action="/auth/guest">
+<input type="hidden" name="csrf_token" value="{{ csrf }}"><input type="hidden" name="return_to" value="{{ return_to }}">
+<label for="guest-name">Display name:</label>
+{% if name_error %}<p role="alert">{{ name_error }}</p>{% endif %}
+<div><input id="guest-name" name="name" value="{{ name|default('') }}" maxlength="60" required autocomplete="nickname"><button>Sign in as guest</button></div>
+</form>{% endif %}
+</div>

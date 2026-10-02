@@ -9,7 +9,7 @@ import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
-from urllib.parse import urlsplit
+from urllib.parse import urlencode, urlsplit
 
 from authlib.integrations.starlette_client import OAuth
 from fastapi import Depends, FastAPI, Form, HTTPException, Request
@@ -56,6 +56,14 @@ def safe_return(value):
             or any(ord(c) < 32 for c in value) or '%' in value.split('?', 1)[0]):
         return '/account/'
     return value if urlsplit(value).netloc == '' else '/account/'
+
+
+def normalize_name(value):
+    normalized = ' '.join(value.split())
+    if (not normalized or len(normalized) > 60
+            or any(ord(char) < 32 or ord(char) == 127 for char in value)):
+        return None
+    return normalized
 
 
 class IdentityRequest(BaseModel):
@@ -207,31 +215,51 @@ def create_app(settings: Settings):
         # The static site only needs a label; never send it account details.
         return {'signed_in': current(request) is not None}
 
+    @app.get('/account/login', response_class=HTMLResponse)
+    def login(request: Request, return_to: str = '/account/', upgrade: bool = False,
+              name_error: str = '', name: str = ''):
+        user = current(request)
+        destination = safe_return(return_to)
+        if user and not (upgrade and user['kind'] == 'guest'):
+            return RedirectResponse(destination, status_code=303)
+        return templates.TemplateResponse(request=request, name='login.html', context={
+            'user': user, 'csrf': csrf(request), 'return_to': destination,
+            'google_enabled': settings.google_enabled,
+            'error': request.query_params.get('error'), 'name_error': name_error, 'name': name,
+        })
+
     @app.post('/account/profile')
-    def profile(request: Request, name: str = Form(...), csrf_token: str = Form(...)):
+    def profile(request: Request, name: str = Form(...), csrf_token: str = Form(...),
+                return_to: str = Form('/account/')):
         check_csrf(request, csrf_token)
         user = current(request)
-        if not user or user['kind'] != 'google':
-            raise HTTPException(401, 'Sign in with Google to set your name')
-        normalized = ' '.join(name.split())
-        if (not normalized or len(normalized) > 60
-                or any(ord(char) < 32 or ord(char) == 127 for char in name)):
-            response = overview(request, profile_error='Use a name between 1 and 60 characters.')
+        if not user:
+            raise HTTPException(401, 'Sign in to set your name')
+        normalized = normalize_name(name)
+        if normalized is None:
+            response = overview(request, return_to=return_to, profile_error='Use a name between 1 and 60 characters.')
             response.status_code = 400
             return response
         with database.connect() as db:
             db.execute('UPDATE users SET name=? WHERE id=?', (normalized, user['id']))
-        return RedirectResponse('/account/', status_code=303)
+        return RedirectResponse(safe_return(return_to), status_code=303)
 
     @app.post('/auth/guest')
-    def guest(request: Request, csrf_token: str = Form(...), return_to: str = Form('/account/')):
+    def guest(request: Request, csrf_token: str = Form(...), name: str = Form(''),
+              return_to: str = Form('/account/')):
         check_csrf(request, csrf_token)
         existing = current(request)
         if existing:
             return RedirectResponse(safe_return(return_to), status_code=303)
+        normalized = normalize_name(name)
+        if normalized is None:
+            response = login(request, return_to=return_to,
+                             name_error='Use a name between 1 and 60 characters.', name=name)
+            response.status_code = 400
+            return response
         with database.connect() as db:
             user_id = str(uuid.uuid4())
-            db.execute('INSERT INTO users VALUES (?,?,?,?,?)', (user_id, 'guest', 'Guest', None, now()))
+            db.execute('INSERT INTO users VALUES (?,?,?,?,?)', (user_id, 'guest', normalized, None, now()))
             return start_session(request, db, user_id, 'guest', return_to)
 
     @app.post('/auth/google')
@@ -245,7 +273,9 @@ def create_app(settings: Settings):
                                                           prompt='select_account')
         except Exception as exc:
             log_google_failure('authorization', exc)
-            return RedirectResponse('/account/?error=google-unavailable', status_code=303)
+            return RedirectResponse('/account/login?' + urlencode({
+                'error': 'google-unavailable', 'return_to': request.session['return_to'], 'upgrade': 'true',
+            }), status_code=303)
 
     @app.get('/auth/google/callback')
     async def google_callback(request: Request):
@@ -263,8 +293,11 @@ def create_app(settings: Settings):
                 raise ValueError('Missing verified identity')
         except Exception as exc:
             log_google_failure(phase, exc)
+            destination = request.session.get('return_to', '/account/')
             request.session.clear()
-            return RedirectResponse('/account/?error=google-login-failed', status_code=303)
+            return RedirectResponse('/account/login?' + urlencode({
+                'error': 'google-login-failed', 'return_to': safe_return(destination), 'upgrade': 'true',
+            }), status_code=303)
         destination = request.session.get('return_to', '/account/')
         with database.connect() as db:
             db.execute('BEGIN IMMEDIATE')

@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{% block title %}Sign in{% endblock %}
+{% block content %}
+<h1>Sign in</h1>
+{% if error %}<p role="alert">Unable to sign in. Please try again.</p>{% endif %}
+{% include "signin.html" %}
+{% if user %}<p><a href="{{ return_to }}">Continue as {{ user.name }}</a></p>{% endif %}
+{% endblock %}

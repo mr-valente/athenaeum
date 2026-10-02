@@ -115,6 +115,7 @@ class EcosystemTests(unittest.TestCase):
         return response
 
     def create_class(self, app, name, cookies):
+        self.ensure_guest(cookies, name)
         response = self.request(app, 'POST', '/admin/login', cookies, {'teacher_name': name})
         self.assertEqual(response.status_code, 303, response.text)
         create = '/x/flip-flop/create' if app == 'bernoulli' else '/admin/session/create'
@@ -126,8 +127,17 @@ class EcosystemTests(unittest.TestCase):
         return session_id, code
 
     def join(self, app, code, name, cookies):
+        self.ensure_guest(cookies, name)
         response = self.request(app, 'POST', '/session/join', cookies, {'join_code': code, 'player_name': name})
         self.assertEqual(response.status_code, 303, response.text)
+
+    def ensure_guest(self, cookies, name):
+        if '__Host-athenaeum_account' not in cookies:
+            page = self.request('accounts', 'GET', '/account/login', cookies)
+            csrf = re.search(r'name="csrf_token" value="([^"]+)"', page.text)[1]
+            response = self.request('accounts', 'POST', '/auth/guest', cookies,
+                                    {'csrf_token': csrf, 'name': name})
+            self.assertEqual(response.status_code, 303, response.text)
 
     def test_shared_identity_recovery_switching_guest_linking_and_result_delivery(self):
         teacher, student = {}, {'__Host-athenaeum_account': 'alice-token'}
@@ -248,7 +258,8 @@ class EcosystemTests(unittest.TestCase):
                 guest = {}
                 self.join(app, code, 'Guest learner', guest)
                 self.assertEqual(self.request(app, 'POST', '/session/join', {},
-                    {'join_code': code, 'player_name': 'Guest learner'}).status_code, 400)
+                    {'join_code': code, 'player_name': 'Guest learner'}).status_code, 303)
+                self.set_name(guest, 'Renamed guest')
                 self.join(app, code, 'Renamed guest', guest)
                 with sqlite3.connect(self.directory / app / 'app.db') as db:
                     self.assertEqual(db.execute('SELECT count(*) FROM players WHERE session_id=?', (sid,)).fetchone()[0], 3)
@@ -283,6 +294,42 @@ class EcosystemTests(unittest.TestCase):
                 self.assertEqual(list(pool.map(join, range(2))), [303, 303])
             with sqlite3.connect(self.directory / app / 'app.db') as db:
                 self.assertEqual(db.execute("SELECT count(*) FROM ecosystem_links WHERE account_id='parallel' AND role='teacher'").fetchone()[0], 1)
+                self.assertEqual(db.execute('SELECT count(*) FROM players WHERE session_id=?', (sid,)).fetchone()[0], 1)
+
+    def test_named_guest_entry_points_reuse_identity_and_reject_signed_out_cookies(self):
+        guest = {}
+        self.ensure_guest(guest, 'Rowan')
+        for app in ('bernoulli', 'quacktuaries'):
+            anonymous = {}
+            response = self.request(app, 'GET', '/join?code=ABC123', anonymous)
+            self.assertEqual(response.status_code, 303)
+            from urllib.parse import parse_qs, urlsplit
+            self.assertEqual(parse_qs(urlsplit(response.headers['location']).query)['return_to'],
+                             ['/' + app + '/join?code=ABC123'])
+            response = self.request(app, 'GET', '/admin', anonymous)
+            self.assertEqual(response.status_code, 303)
+            self.assertTrue(response.headers['location'].startswith('/account/login?'))
+            response = self.request(app, 'GET', '/admin', guest)
+            self.assertEqual(response.status_code, 303)
+            self.assertTrue(response.headers['location'].endswith('/admin/dashboard'))
+            self.assertEqual(self.request(app, 'GET', '/admin/dashboard', guest).status_code, 200)
+            sid, code = self.create_class(app, 'ignored teacher name', guest)
+            page = self.request(app, 'GET', '/join?code=' + code, guest)
+            self.assertIn('Joining as Rowan', page.text)
+            self.assertNotIn('name="player_name"', page.text)
+            self.join(app, code, 'forged name', guest)
+            fresh = {'__Host-athenaeum_account': guest['__Host-athenaeum_account']}
+            self.join(app, code, 'ignored', fresh)
+            self.set_name(guest, 'Robin')
+            self.request(app, 'GET', '/', guest)
+            with sqlite3.connect(self.directory / app / 'app.db') as db:
+                self.assertEqual(db.execute('SELECT name FROM players WHERE session_id=?', (sid,)).fetchall(), [('Robin',)])
+                self.assertEqual(db.execute('SELECT t.name FROM teachers t JOIN sessions s ON s.teacher_id=t.id WHERE s.id=?', (sid,)).fetchone()[0], 'Robin')
+            self.set_name(guest, 'Rowan')
+            signed_out = {k: v for k, v in guest.items() if k != '__Host-athenaeum_account'}
+            self.assertTrue(self.request(app, 'GET', '/admin', signed_out).headers['location'].startswith('/account/login?'))
+            self.assertEqual(self.request(app, 'POST', '/session/join', signed_out, {'join_code': code}).status_code, 303)
+            with sqlite3.connect(self.directory / app / 'app.db') as db:
                 self.assertEqual(db.execute('SELECT count(*) FROM players WHERE session_id=?', (sid,)).fetchone()[0], 1)
 
     def test_teacher_profiles_recover_without_names_and_keep_classroom_ownership(self):

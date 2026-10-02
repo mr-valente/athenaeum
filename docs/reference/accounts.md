@@ -48,16 +48,34 @@ privilege: classroom ownership remains app-local.
 
 New local teacher/player profiles receive a shared account link when created with
 a resolved identity. Linked profiles recover on another device by account ID.
-Existing guest profiles remain unlinked until explicitly saved in the original
-browser; its rejoin token is required. Google-owned profiles cannot be transferred.
+Existing local guest profiles require the original browser's rejoin token.
+Resuming them as a shared guest binds them to that guest identity. Saving guest
+activity to Google remains an explicit action in the original app's Account page.
+Google-owned profiles cannot be transferred.
 
-The overview lets Google users set a display name of up to 60 characters. Google
-supplies the initial name; future sign-ins retain the chosen name. Apps use this
+Hosted Join session and Teacher login entry points first establish an identity
+at `/account/login?return_to=<local-path>`. Guests enter a display name there;
+Google users use their saved name. Existing identities skip sign-in, join codes
+survive the round trip, and teachers go directly to their app dashboard. Joining
+then asks only for the code. New hosted profiles require a validated identity;
+an account-service outage does not create anonymous profiles as a fallback.
+Standalone apps keep their local guest entry forms.
+
+The overview lets Google and guest users set a display name of up to 60
+characters. Google supplies the initial name; future sign-ins retain the chosen
+name. Apps use this
 name for linked teacher and player profiles and update their labels on the next
 request. Names do not reserve identities: teachers and signed-in players can
-share a name while retaining separate profiles. One account recovers one seat
-per classroom. Guests can reuse teacher names; player names remain protected
-within a classroom, and rejoining from the same browser recovers the same seat.
+share a name while retaining separate profiles. One account, including a shared
+guest, recovers one seat per classroom. Renaming does not change the identity or
+create another seat. Standalone guests retain browser-proof recovery and player
+name collision checks. Shared guests last for the cookie's seven-day lifetime
+and do not receive persistent history. Cookie loss requires a new guest identity.
+
+Signed-in overview pages hide the Google button. Guest users can explicitly
+switch to Google through Save with a Google account; saving previous guest
+activity still requires the original app's browser proof. The account pages
+link Privacy; the public website footer does not.
 
 Each app has one Login/Account header link to its local account page. The central
 overview has one link per app, pointing to that page. Guest saving remains an

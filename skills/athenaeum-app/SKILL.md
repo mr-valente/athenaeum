@@ -29,9 +29,19 @@ otherwise, opening the app's account page. That page links to the central accoun
 overview and offers explicit saving of guest activity. Preserve local return
 paths. Only the central service issues the shared root-scoped cookie.
 
+Before a hosted user joins a classroom or opens a teacher dashboard, send users
+without a shared identity to `/account/login?return_to=<local-path>`. Offer Google
+or guest sign-in there; guests choose a display name. Preserve join codes and
+queries through sign-in, skip it for existing identities, and recover or provision
+the user's app-local teacher profile before opening their dashboard. Do not ask
+for the name again in hosted app entry forms. Provide a Change name link to the
+central overview with a return path. Keep standalone guest entry available.
+If identity validation is unavailable, retain established classroom access under
+the existing outage rules, but do not create new anonymous profiles as a fallback.
+
 Keep the public interface understated: brief labels and practical instructions.
-Use the main website as the Google application home page and link Privacy in
-its footer. Do not add an ecosystem landing page, login announcements, or
+Use the main website as the Google application home page and link Privacy on
+the account pages. Do not add an ecosystem landing page, login announcements, or
 explanations of the account architecture to app screens.
 
 Read `docs/reference/accounts.md` for the v1 API. Python apps bundle pinned copies
@@ -50,10 +60,11 @@ profiles. Account switching and shared sign-out must prevent stale app cookies
 from authorizing the previous account. Preserve classroom ownership checks;
 Google login grants no global teacher/admin privilege. Use the account's editable
 display name for signed-in profiles; names are labels and can be reused. Recover
-one player seat per account and classroom, even across devices or concurrent
-joins. Guest teacher names must not be reserved forever; keep private profiles
-separate by ID and browser proof. Guest player names may stay unique within a
-classroom, and the same browser should return to its existing seat.
+one player seat per account and classroom, including shared guests, even across
+devices or concurrent joins. Display names can be reused for shared identities;
+changing a name must not create another seat. Standalone guest names may stay
+unique within a classroom. Guest teacher names must not be reserved forever;
+keep private profiles separate by ID and browser proof.
 
 For performance-bearing apps, define finalized server-generated metrics plus
 activity settings. Use stable app/source IDs and monotonic revisions. Write a

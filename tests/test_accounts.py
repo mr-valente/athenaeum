@@ -53,14 +53,16 @@ class AccountTests(unittest.TestCase):
         token = self.csrf()
         self.assertEqual(self.client.post('/auth/guest', data={'csrf_token': token},
                                          headers={'Origin': 'https://other.test'}).status_code, 403)
-        response = self.client.post('/auth/guest', data={'csrf_token': token, 'return_to': '//attacker.test'}, follow_redirects=False)
+        response = self.client.post('/auth/guest', data={'csrf_token': token, 'name': '  Guest   Rowan ', 'return_to': '//attacker.test'}, follow_redirects=False)
         self.assertEqual(response.headers['location'], '/account/')
         cookie = response.headers['set-cookie']
         for value in ('HttpOnly', 'Secure', 'SameSite=lax', 'Path=/'):
             self.assertIn(value, cookie)
         self.assertNotIn('Domain=', cookie)
         raw = self.client.cookies.get(self.settings.cookie)
-        self.assertEqual(self.api('/internal/identity', {'token': raw}).json()['user']['kind'], 'guest')
+        user = self.api('/internal/identity', {'token': raw}).json()['user']
+        self.assertEqual(user['kind'], 'guest')
+        self.assertEqual(user['name'], 'Guest Rowan')
         with self.app.state.database.connect() as db:
             stored = db.execute('SELECT token_hash FROM account_sessions').fetchone()[0]
         self.assertNotEqual(stored, raw)
@@ -129,6 +131,41 @@ class AccountTests(unittest.TestCase):
         self.assertNotIn('Sign out on every device', html)
         self.assertIn('href="/bernoulli/account">Bernoulli</a>', html)
         self.assertNotIn('href="/bernoulli/"', html)
+        self.assertNotIn('class="google-signin"', html)
+        self.assertNotIn('Shown in the apps.', html)
+
+    def test_guest_requires_name_and_can_edit_it_without_changing_identity(self):
+        csrf = self.csrf()
+        for name in ('', '   ', 'x' * 61, 'new\nname'):
+            response = self.client.post('/auth/guest', data={
+                'csrf_token': csrf, 'name': name, 'return_to': '/bernoulli/join?code=ABC123'})
+            self.assertEqual(response.status_code, 400)
+            self.assertIn('Use a name between 1 and 60 characters.', response.text)
+            self.assertIn('/bernoulli/join?code=ABC123', response.text)
+        with self.app.state.database.connect() as db:
+            self.assertEqual(db.execute('SELECT count(*) FROM users').fetchone()[0], 0)
+        response = self.client.post('/auth/guest', data={'csrf_token': csrf, 'name': '<Rowan>',
+                                    'return_to': '/bernoulli/join?code=ABC123'}, follow_redirects=False)
+        self.assertEqual(response.headers['location'], '/bernoulli/join?code=ABC123')
+        raw = self.client.cookies.get(self.settings.cookie)
+        user = self.api('/internal/identity', {'token': raw}).json()['user']
+        html = self.client.get('/account/').text
+        self.assertIn('&lt;Rowan&gt;', html)
+        self.assertNotIn('class="google-signin"', html)
+        self.assertEqual(self.client.get('/account/export').json()['performance'], [])
+        self.client.post('/account/profile', data={'csrf_token': self.csrf(), 'name': 'Robin'})
+        renamed = self.api('/internal/identity', {'token': raw}).json()['user']
+        self.assertEqual(renamed['id'], user['id'])
+        self.assertEqual(renamed['name'], 'Robin')
+        self.assertEqual(self.client.cookies.get(self.settings.cookie), raw)
+
+    def test_login_skips_existing_identity_and_preserves_safe_destination(self):
+        self.assertEqual(self.client.get('/account/login?return_to=/bernoulli/join').status_code, 200)
+        self.google_user()
+        response = self.client.get('/account/login?return_to=/bernoulli/join?code=ABC123', follow_redirects=False)
+        self.assertEqual(response.headers['location'], '/bernoulli/join?code=ABC123')
+        response = self.client.get('/account/login?return_to=//evil.test', follow_redirects=False)
+        self.assertEqual(response.headers['location'], '/account/')
 
     def test_provider_failure_does_not_create_an_account(self):
         settings = Settings(Path(self.temp.name) / 'oauth.db', 'secret' * 8,
@@ -178,7 +215,7 @@ class AccountTests(unittest.TestCase):
                             google_client_id='test.apps.googleusercontent.com', google_client_secret='private')
         app = create_app(settings)
         with TestClient(app, base_url=settings.origin) as client:
-            client.post('/auth/guest', data={'csrf_token': self.csrf(client)})
+            client.post('/auth/guest', data={'csrf_token': self.csrf(client), 'name': 'Guest'})
             with app.state.database.connect() as db:
                 guest_id = db.execute('SELECT id FROM users').fetchone()[0]
             mock = AsyncMock(return_value={'userinfo': {'sub': 'stable-sub', 'email': 'old@example.test', 'email_verified': True}})

@@ -8,6 +8,7 @@ order: 100
 
 Google sign-in is optional. I use your Google account ID, name, and email to
 recognize your account and save activity across apps and devices.
+For guest access, I use your chosen display name and a temporary browser cookie.
 
 Saved activity includes answers, scores, and classroom settings. Teachers can
 see results in their classrooms; other participants may see display names and

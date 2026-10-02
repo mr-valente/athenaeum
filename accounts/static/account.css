@@ -4,8 +4,8 @@
 .account-actions form { margin:0; }
 .account-profile { margin:1.5rem 0; }
 .account-profile div { display:flex; gap:.75rem; flex-wrap:wrap; }
-.account-profile input { font:inherit; padding:.6rem; border:1px solid #617777; border-radius:.3rem; background:#172324; color:#e3ebea; max-width:100%; }
-.account-hint { margin:.5rem 0; }
+.account-profile input { font:inherit; padding:.6rem; border:1px solid #617777; border-radius:.3rem; background:#172324; color:#e3ebea; max-width:100%; min-width:0; box-sizing:border-box; }
+.account-profile label { display:block; margin-bottom:.5rem; }
 .account-record { border-top:1px solid var(--ath-border, #394444); padding:1.5rem 0; }
 .account-record dl { display:grid; grid-template-columns:minmax(8rem, 1fr) 2fr; gap:.5rem 1rem; }
 .account-record dt { overflow-wrap:anywhere; }
