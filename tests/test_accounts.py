@@ -21,7 +21,8 @@ class AccountTests(unittest.TestCase):
         self.settings = Settings(Path(self.temp.name) / 'app.db', 'test-secret-' * 4,
                                  origin='https://valentemath.com', production=True,
                                  clients={'bernoulli': app_key('bernoulli-secret-' * 4, 'bernoulli'),
-                                          'quacktuaries': app_key('quack-secret-' * 4, 'quacktuaries')})
+                                          'quacktuaries': app_key('quack-secret-' * 4, 'quacktuaries'),
+                                          'srs': app_key('srs-secret-' * 6, 'srs')})
         self.app = create_app(self.settings)
         self.client = self.enterContext(TestClient(self.app, base_url=self.settings.origin))
 
@@ -130,6 +131,7 @@ class AccountTests(unittest.TestCase):
         html = self.client.get('/account/').text
         self.assertNotIn('Sign out on every device', html)
         self.assertIn('href="/bernoulli/account">Bernoulli</a>', html)
+        self.assertIn('href="/srs/account">SRS</a>', html)
         self.assertNotIn('href="/bernoulli/"', html)
         self.assertNotIn('class="google-signin"', html)
         self.assertNotIn('Shown in the apps.', html)

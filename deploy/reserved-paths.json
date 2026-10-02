@@ -1,6 +1,7 @@
 [
   "quacktuaries",
   "bernoulli",
+  "srs",
   "account",
   "auth",
   "internal"

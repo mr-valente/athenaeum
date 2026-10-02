@@ -74,6 +74,8 @@ APPS = {
                      'tables': {'teachers', 'sessions', 'players', 'device_stats', 'events'}},
     'bernoulli': {'secret': 'bernoulli_session_secret', 'root_path': '/bernoulli',
                   'tables': {'teachers', 'sessions', 'players', 'flip_flop_rounds', 'flip_flop_votes'}},
+    'srs': {'secret': 'srs_session_secret', 'root_path': '/srs',
+            'tables': {'learners', 'card_states', 'reviews', 'card_notes', 'decks'}},
 }
 SERVICES = ('edge', 'athenaeum', 'socket-proxy', 'sablier', *APPS)
 
@@ -124,6 +126,7 @@ DEFAULTS = {
     'compose_env': '/etc/athenaeum/compose.env',
     'session_secret': '/etc/athenaeum/quacktuaries-session-secret',
     'bernoulli_session_secret': '/etc/athenaeum/bernoulli-session-secret',
+    'srs_session_secret': '/etc/athenaeum/srs-session-secret',
     'accounts_session_secret': '/etc/athenaeum/accounts-session-secret',
     'age_binary': '/opt/athenaeum/tools/age', 'bucket_cap_bytes': 8_000_000_000,
     'max_snapshot_bytes': 1_000_000_000, 'max_restore_bytes': 4_000_000_000,

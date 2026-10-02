@@ -5,6 +5,7 @@ header >Referrer-Policy strict-origin-when-cross-origin
 
 import light /quacktuaries quacktuaries Quacktuaries
 import light /bernoulli bernoulli Bernoulli
+import light /srs srs SRS
 # Shared identity is infrastructure: these routes never pass through Sablier.
 handle /internal/* {
 	respond 404

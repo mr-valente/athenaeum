@@ -104,12 +104,16 @@ an audit record. App servers establish account IDs and metrics, never browsers.
 Bernoulli publishes one vote per revealed round with correctness, changes and
 sample context. Quacktuaries publishes one completed player run with score,
 interval coverage/width, sampling/resource use, policies and scoring settings.
+SRS publishes one summary per study day with cards answered, new cards, minutes
+and the percentage recalled among cards seen before, revised as the day goes on.
 Active-game summaries and unrevealed truths are not exposed. Raw details appear
 in the JSON export; the overview displays scalar metrics and context.
 
 The canonical adapter is `accounts/client/ecosystem.py`. Python consumers bundle
 identical pinned copies and the account template; integration tests check the
-copies. App-owned `performance.py` implements finalized snapshots. Other
+copies. App-owned `performance.py` implements finalized snapshots. SRS has no
+classrooms: one profile per account, linked as `player`, exposed to the adapter
+under the names it expects. Its account page lists the app as SRS. Other
 frameworks can implement the same contract.
 
 `ecosystem_links` and `ecosystem_outbox` are additive tables. Bernoulli removes

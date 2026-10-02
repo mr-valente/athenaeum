@@ -220,7 +220,7 @@ class EcosystemTests(unittest.TestCase):
         self.assertEqual(response.status_code, 409)
 
     def test_vendored_adapter_matches_contract(self):
-        for app in ('bernoulli', 'quacktuaries'):
+        for app in ('bernoulli', 'quacktuaries', 'srs'):
             self.assertEqual((ROOT / 'accounts/client/ecosystem.py').read_bytes(),
                              (ROOT.parent / app / 'app/ecosystem.py').read_bytes())
             self.assertEqual((ROOT / 'accounts/client/account.html').read_bytes(),

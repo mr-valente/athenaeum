@@ -41,6 +41,19 @@ with sqlite3.connect('file:/data/app.db?mode=ro',uri=True) as db:
    data=json.load(r)
    assert data['session']['status']==row[1]
 print('Restored application HTTP and saved session state verified.')
+''', 'srs': r'''
+import json,sqlite3,urllib.request
+with urllib.request.urlopen('http://127.0.0.1:8000/_health',timeout=3) as r:
+ assert r.status==200 and json.load(r)['status']=='ok'
+with urllib.request.urlopen('http://127.0.0.1:8000/',timeout=3) as r:
+ assert b'SRS' in r.read()
+with sqlite3.connect('file:/data/app.db?mode=ro',uri=True) as db:
+ assert db.execute('PRAGMA integrity_check').fetchone()[0]=='ok'
+ for table in ('learners','card_states','reviews','card_notes','decks'):
+  db.execute('SELECT count(*) FROM '+table).fetchone()
+ orphans=db.execute('SELECT count(*) FROM reviews WHERE learner_id NOT IN (SELECT id FROM learners)').fetchone()[0]
+ assert orphans==0
+print('Restored application HTTP and saved study history verified.')
 ''', 'accounts': r'''
 import json,sqlite3,urllib.request
 with urllib.request.urlopen('http://127.0.0.1:8000/_health',timeout=3) as r:
