@@ -110,6 +110,26 @@ class AccountTests(unittest.TestCase):
         self.client.post('/auth/logout-all', data={'csrf_token': self.csrf()})
         self.assertIsNone(self.api('/internal/identity', {'token': 'other-device'}).json()['user'])
 
+    def test_display_name_and_minimal_status_are_private_and_csrf_protected(self):
+        response = self.client.get('/account/status')
+        self.assertEqual(response.json(), {'signed_in': False})
+        self.assertEqual(response.headers['cache-control'], 'no-store')
+        self.assertEqual(self.client.post('/account/profile', data={'name': 'Mr. Valente', 'csrf_token': self.csrf()}).status_code, 401)
+        self.google_user()
+        self.assertEqual(self.client.get('/account/status').json(), {'signed_in': True})
+        csrf = self.csrf()
+        self.assertEqual(self.client.post('/account/profile', data={'name': 'Mr. Valente', 'csrf_token': 'wrong'}).status_code, 403)
+        self.assertEqual(self.client.post('/account/profile', data={'name': 'Mr. Valente', 'csrf_token': csrf}, headers={'Origin': 'https://other.test'}).status_code, 403)
+        for name in ('   ', 'x' * 61, 'new\nname'):
+            self.assertEqual(self.client.post('/account/profile', data={'name': name, 'csrf_token': csrf}).status_code, 400)
+        response = self.client.post('/account/profile', data={'name': '  Mr.   Valente  ', 'csrf_token': csrf}, follow_redirects=False)
+        self.assertEqual(response.status_code, 303)
+        self.assertEqual(self.client.get('/account/export').json()['account']['name'], 'Mr. Valente')
+        html = self.client.get('/account/').text
+        self.assertNotIn('Sign out on every device', html)
+        self.assertIn('href="/bernoulli/account">Bernoulli</a>', html)
+        self.assertNotIn('href="/bernoulli/"', html)
+
     def test_provider_failure_does_not_create_an_account(self):
         settings = Settings(Path(self.temp.name) / 'oauth.db', 'secret' * 8,
                             origin='https://valentemath.com', production=True,
@@ -164,6 +184,7 @@ class AccountTests(unittest.TestCase):
             mock = AsyncMock(return_value={'userinfo': {'sub': 'stable-sub', 'email': 'old@example.test', 'email_verified': True}})
             with patch.object(app.state.oauth.google, 'authorize_access_token', mock):
                 client.get('/auth/google/callback')
+                client.post('/account/profile', data={'name': 'Mr. Valente', 'csrf_token': self.csrf(client)})
                 mock.return_value['userinfo']['email'] = 'changed@example.test'
                 client.get('/auth/google/callback')
             with app.state.database.connect() as db:
@@ -171,6 +192,7 @@ class AccountTests(unittest.TestCase):
                 persistent = db.execute("SELECT * FROM users WHERE kind='google'").fetchone()
                 self.assertNotEqual(persistent['id'], guest_id)
                 self.assertEqual(persistent['email'], 'changed@example.test')
+                self.assertEqual(persistent['name'], 'Mr. Valente')
 
     def test_configure_preserves_secret_permissions_and_google_values(self):
         path = Path(self.temp.name) / 'credentials'

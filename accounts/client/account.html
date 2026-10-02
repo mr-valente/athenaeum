@@ -1,9 +1,9 @@
 {% extends "base.html" %}
-{% block title %}Save your activity{% endblock %}
+{% block title %}Account{% endblock %}
 {% block content %}
-<h1>Save activity</h1>
+<h1>Account</h1>
 {% if account_user %}<p>{{ account_user.name }}{% if account_user.kind == 'google' %} · {{ account_user.email }}{% else %} · Guest{% endif %}</p>{% endif %}
-<p><a href="/account/?return_to={{ request.url_for('app_account').path|urlencode }}">{{ 'Account' if account_user and account_user.kind == 'google' else 'Sign in with Google' }}</a></p>
+<p><a href="/account/?return_to={{ request.url_for('app_account').path|urlencode }}">{{ 'Valente Math account' if account_user else 'Login' }}</a></p>
 {% if claimable %}<p>Choose your guest activity to save to your account.</p>{% endif %}
 {% for record in claimable %}<div class="card"><p>{{ record.role|capitalize }}: {{ record.name }}</p>
 {% if account_user and account_user.kind == 'google' %}<form method="post" action="{{ request.url_for('save_activity') }}"><input type="hidden" name="role" value="{{ record.role }}"><input type="hidden" name="local_id" value="{{ record.id }}"><input type="hidden" name="csrf_token" value="{{ csrf }}"><button class="btn btn-primary">Save</button></form>{% endif %}</div>

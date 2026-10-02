@@ -48,7 +48,7 @@ for (let url = parentUrl(Astro.url.pathname); url; url = parentUrl(url)) {
       </a>
       <nav aria-label="Main navigation">
         {navigation.map((page) => <a href={page.url} aria-current={Astro.url.pathname === page.url ? 'page' : Astro.url.pathname.startsWith(page.url) ? 'true' : undefined}>{page.title}</a>)}
-        <a href="/account/">Login</a>
+        <a href="/account/" data-account-link>Login</a>
         <a class="ath-github-profile" href="https://github.com/mr-valente" aria-label="mr-valente on GitHub" title="mr-valente on GitHub"><GithubIcon /></a>
       </nav>
     </header>
@@ -62,5 +62,28 @@ for (let url = parentUrl(Astro.url.pathname); url; url = parentUrl(url)) {
       <p>{home?.title ?? 'Athenaeum'} <span aria-hidden="true">/</span> Be excellent<span aria-hidden="true">_</span></p>
       <p>Stay curious<span aria-hidden="true">_</span> <span aria-hidden="true">/</span> <a href="/privacy/">Privacy</a></p>
     </footer>
+    <script>
+      let latestRequest = 0;
+      async function updateAccountLink() {
+        const requestId = ++latestRequest;
+        try {
+          const response = await fetch('/account/status', { credentials: 'same-origin', cache: 'no-store' });
+          if (!response.ok) return;
+          const status = await response.json();
+          if (requestId !== latestRequest) return;
+          document.querySelectorAll('[data-account-link]').forEach(link => {
+            link.textContent = status.signed_in === true ? 'Account' : 'Login';
+          });
+        } catch { /* The public website remains usable if accounts is unavailable. */ }
+      }
+      window.addEventListener('pageshow', event => {
+        if (event.persisted) updateAccountLink();
+      });
+      window.addEventListener('focus', updateAccountLink);
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') updateAccountLink();
+      });
+      updateAccountLink();
+    </script>
   </body>
 </html>

@@ -2,7 +2,9 @@
 
 The always-running `accounts` service owns identity and performance history.
 Caddy serves it at `/auth/` and `/account/`. The main website remains static and
-public; its Login link opens the overview. Hosted apps use the private API at
+public; its Login/Account link opens the overview. A same-origin request to
+`/account/status` returns only `signed_in`, with caching disabled, to select the
+label. Hosted apps use the private API at
 `http://accounts:8000`. Caddy blocks `/internal/*`; no application port is published.
 
 ## State and credentials
@@ -49,6 +51,18 @@ a resolved identity. Linked profiles recover on another device by account ID.
 Existing guest profiles remain unlinked until explicitly saved in the original
 browser; its rejoin token is required. Google-owned profiles cannot be transferred.
 
+The overview lets Google users set a display name of up to 60 characters. Google
+supplies the initial name; future sign-ins retain the chosen name. Apps use this
+name for linked teacher and player profiles and update their labels on the next
+request. Names do not reserve identities: teachers and signed-in players can
+share a name while retaining separate profiles. One account recovers one seat
+per classroom. Guests can reuse teacher names; player names remain protected
+within a classroom, and rejoining from the same browser recovers the same seat.
+
+Each app has one Login/Account header link to its local account page. The central
+overview has one link per app, pointing to that page. Guest saving remains an
+explicit action there, using browser proof.
+
 During an account-service outage, an established classroom seat can continue only
 with the same shared cookie and its signed browser account binding. Fresh and
 switched identities require service validation. Revocations made while validation
@@ -80,8 +94,13 @@ identical pinned copies and the account template; integration tests check the
 copies. App-owned `performance.py` implements finalized snapshots. Other
 frameworks can implement the same contract.
 
-`ecosystem_links` and `ecosystem_outbox` are additive tables. No classroom rows
-or columns are rewritten. The outbox changes in the gameplay transaction and
+`ecosystem_links` and `ecosystem_outbox` are additive tables. Bernoulli removes
+its older name uniqueness constraints at startup in a transaction, preserving
+all classroom rows, IDs and references. It checks integrity and references before
+committing, rolls back on failure and creates no extra data files. Subsequent
+startups leave the schema alone. The normal host deployment takes its verified
+encrypted backup before replacing the app.
+The outbox changes in the gameplay transaction and
 delivers outside it. Retry runs every 15 seconds while awake, startup reconciles
 finalized records, and sleeping apps retain pending rows. Acknowledged source
 revisions remain on disk. The app account page reports pending counts. A service

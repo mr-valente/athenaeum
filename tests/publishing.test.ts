@@ -28,7 +28,8 @@ test('real builds publish selected assets and remove drafts, stale assets, and d
     assert.match(html, /href="\/_content\/notes\/values.csv"/);
     assert.match(await readFile(path.join(root, 'dist/notes/index.html'), 'utf8'), /href="\/notes\/lesson\/"/);
     assert.equal(await readFile(path.join(root, 'dist/_content/notes/values.csv'), 'utf8'), 'x\n3\n');
-    assert(!html.includes('<script'));
+    assert.match(html, /<script type="module" src="\/_astro\/[^\"]+"><\/script>/);
+    assert.equal((html.match(/<script\b/g) ?? []).length, 1);
     const appHtml = await readFile(path.join(root, 'dist/app/index.html'), 'utf8');
     assert.match(appHtml, /href="https:\/\/github.com\/mr-valente\/bernoulli"/);
     assert(appHtml.indexOf('Open App') < appHtml.indexOf('View App on GitHub'));

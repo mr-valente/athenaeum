@@ -112,7 +112,8 @@ class ContainerEcosystem(EcosystemTests):
         docker('run', '-d', '--pull', 'never', '--name', website, '--network', self.network,
                '--network-alias', 'athenaeum', '--read-only', '--cap-drop', 'ALL',
                '--mount', f'type=bind,src={root / "dist"},dst=/srv,readonly',
-               'athenaeum-accounts-edge:test', 'caddy', 'file-server', '--listen', ':8080', '--root', '/srv')
+               '--mount', f'type=bind,src={root / "docker/caddy.json"},dst=/etc/caddy/caddy.json,readonly',
+               'athenaeum-accounts-edge:test', 'caddy', 'run', '--config', '/etc/caddy/caddy.json')
         self.processes['website'] = website
         edge = self.network + '-edge'
         docker('run', '-d', '--pull', 'never', '--name', edge, '--network', self.network,

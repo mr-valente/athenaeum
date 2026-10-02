@@ -1,7 +1,11 @@
 @import url('/account/static/tokens.css');
 @import url('/account/static/base.css');
-.account-actions { display:flex; gap:1rem; flex-wrap:wrap; margin:1.5rem 0; }
+.account-actions { display:flex; flex-direction:column; align-items:flex-start; gap:1rem; margin:1.5rem 0; }
 .account-actions form { margin:0; }
+.account-profile { margin:1.5rem 0; }
+.account-profile div { display:flex; gap:.75rem; flex-wrap:wrap; }
+.account-profile input { font:inherit; padding:.6rem; border:1px solid #617777; border-radius:.3rem; background:#172324; color:#e3ebea; max-width:100%; }
+.account-hint { margin:.5rem 0; }
 .account-record { border-top:1px solid var(--ath-border, #394444); padding:1.5rem 0; }
 .account-record dl { display:grid; grid-template-columns:minmax(8rem, 1fr) 2fr; gap:.5rem 1rem; }
 .account-record dt { overflow-wrap:anywhere; }

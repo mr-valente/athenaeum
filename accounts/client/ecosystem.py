@@ -55,6 +55,35 @@ def account(request):
     return getattr(request.state, 'ecosystem_account', None)
 
 
+def display_name(request, fallback=''):
+    user = account(request)
+    return user['name'] if user and user['kind'] == 'google' else fallback
+
+
+def lock_profiles(db):
+    # Serialize profile lookup + creation so concurrent joins cannot create
+    # multiple seats for one account. No network call runs under this lock.
+    connection = db.connection()
+    if not connection.connection.driver_connection.in_transaction:
+        connection.exec_driver_sql('BEGIN IMMEDIATE')
+
+
+def sync_display_names(user):
+    """Keep app display labels current without changing profile ownership."""
+    from app.models import Teacher, Player
+    with SessionLocal() as db:
+        changed = False
+        for role, model in (('teacher', Teacher), ('player', Player)):
+            ids = db.query(AccountLink.local_id).filter(
+                AccountLink.role == role, AccountLink.account_id == user['id'])
+            query = db.query(model).filter(model.id.in_(ids), model.name != user['name'])
+            if query.first() is not None:
+                query.update({model.name: user['name']}, synchronize_session=False)
+                changed = True
+        if changed:
+            db.commit()
+
+
 def api(path, payload):
     data = json.dumps(payload, allow_nan=False).encode()
     req = http.Request(SERVICE_URL + path, data=data, headers={
@@ -83,6 +112,9 @@ class AccountMiddleware(BaseHTTPMiddleware):
                 request.state.ecosystem_account = resolved['user']
             except (RuntimeError, KeyError):
                 request.state.ecosystem_unavailable = True
+        user = account(request)
+        if user and user['kind'] == 'google':
+            await asyncio.to_thread(sync_display_names, user)
         response = await call_next(request)
         if ENABLED:
             response.headers['Cache-Control'] = 'no-store'

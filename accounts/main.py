@@ -185,7 +185,8 @@ def create_app(settings: Settings):
         return RedirectResponse('/account/', status_code=308)
 
     @app.get('/account/', response_class=HTMLResponse)
-    def overview(request: Request, return_to: str = '/account/', page: int = 1):
+    def overview(request: Request, return_to: str = '/account/', page: int = 1,
+                 profile_error: str = ''):
         user = current(request)
         page = max(1, min(page, 100000))
         with database.connect() as db:
@@ -198,7 +199,29 @@ def create_app(settings: Settings):
             'google_enabled': settings.google_enabled, 'return_to': safe_return(return_to),
             'apps': sorted(settings.clients), 'page': page, 'has_next': len(rows) > 50,
             'error': request.query_params.get('error'),
+            'profile_error': profile_error,
         })
+
+    @app.get('/account/status')
+    def status(request: Request):
+        # The static site only needs a label; never send it account details.
+        return {'signed_in': current(request) is not None}
+
+    @app.post('/account/profile')
+    def profile(request: Request, name: str = Form(...), csrf_token: str = Form(...)):
+        check_csrf(request, csrf_token)
+        user = current(request)
+        if not user or user['kind'] != 'google':
+            raise HTTPException(401, 'Sign in with Google to set your name')
+        normalized = ' '.join(name.split())
+        if (not normalized or len(normalized) > 60
+                or any(ord(char) < 32 or ord(char) == 127 for char in name)):
+            response = overview(request, profile_error='Use a name between 1 and 60 characters.')
+            response.status_code = 400
+            return response
+        with database.connect() as db:
+            db.execute('UPDATE users SET name=? WHERE id=?', (normalized, user['id']))
+        return RedirectResponse('/account/', status_code=303)
 
     @app.post('/auth/guest')
     def guest(request: Request, csrf_token: str = Form(...), return_to: str = Form('/account/')):
@@ -250,7 +273,9 @@ def create_app(settings: Settings):
             name = str(userinfo.get('name') or 'Google account')[:120]
             email = str(userinfo['email'])[:320]
             if row:
-                db.execute('UPDATE users SET name=?,email=? WHERE id=?', (name, email, user_id))
+                # Google supplies the initial name; later sign-ins preserve the
+                # user's chosen display name.
+                db.execute('UPDATE users SET email=? WHERE id=?', (email, user_id))
             else:
                 db.execute('INSERT INTO users VALUES (?,?,?,?,?)', (user_id, 'google', name, email, now()))
                 db.execute('INSERT INTO identities VALUES (?,?,?)', ('google', subject, user_id))

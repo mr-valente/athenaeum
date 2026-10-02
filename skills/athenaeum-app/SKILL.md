@@ -24,8 +24,10 @@ Apply the current shared CSS contract from `design/` and the decisions in `style
 
 Hosted apps use the always-running `accounts` service. Preserve standalone and
 classroom guest access; do not add another Google client or share signing keys
-between apps. Add Login/account-overview and Save activity links, with local
-return paths. Only the central service issues the shared root-scoped cookie.
+between apps. Add one header link labelled Account when signed in or Login
+otherwise, opening the app's account page. That page links to the central account
+overview and offers explicit saving of guest activity. Preserve local return
+paths. Only the central service issues the shared root-scoped cookie.
 
 Keep the public interface understated: brief labels and practical instructions.
 Use the main website as the Google application home page and link Privacy in
@@ -46,7 +48,12 @@ need explicit saving, CSRF protection and browser rejoin-token proof. Names and
 email never prove ownership. Never silently merge or transfer Google-owned
 profiles. Account switching and shared sign-out must prevent stale app cookies
 from authorizing the previous account. Preserve classroom ownership checks;
-Google login grants no global teacher/admin privilege.
+Google login grants no global teacher/admin privilege. Use the account's editable
+display name for signed-in profiles; names are labels and can be reused. Recover
+one player seat per account and classroom, even across devices or concurrent
+joins. Guest teacher names must not be reserved forever; keep private profiles
+separate by ID and browser proof. Guest player names may stay unique within a
+classroom, and the same browser should return to its existing seat.
 
 For performance-bearing apps, define finalized server-generated metrics plus
 activity settings. Use stable app/source IDs and monotonic revisions. Write a

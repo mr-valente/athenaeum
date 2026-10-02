@@ -34,6 +34,19 @@ class EcosystemTests(unittest.TestCase):
             (cls.directory / (name + '-secret')).write_text((name + '-fixture-') * 5)
         try:
             for name in ('accounts', 'bernoulli', 'quacktuaries'):
+                if name == 'bernoulli':
+                    # Exercise a real startup upgrade, including an abandoned
+                    # teacher name. IDs, tokens and child references survive.
+                    with sqlite3.connect(cls.directory / name / 'app.db') as db:
+                        db.executescript('''
+                        CREATE TABLE teachers (id VARCHAR PRIMARY KEY, name VARCHAR NOT NULL,
+                            rejoin_token VARCHAR(32) NOT NULL, created_at DATETIME, UNIQUE(name));
+                        CREATE TABLE players (id VARCHAR PRIMARY KEY, session_id VARCHAR NOT NULL,
+                            name VARCHAR NOT NULL, rejoin_token VARCHAR(32) NOT NULL, created_at DATETIME,
+                            FOREIGN KEY(session_id) REFERENCES sessions(id),
+                            CONSTRAINT uq_session_player_name UNIQUE(session_id, name));
+                        INSERT INTO teachers VALUES ('legacy-teacher','Mr. Valente','legacy-private-token','2026-01-01 00:00:00');
+                        ''')
                 env = dict(os.environ, APP_ENV='production', ROOT_PATH='/' + name,
                            DB_PATH=str(cls.directory / name / 'app.db'), PORT=str(cls.ports[name]),
                            SESSION_SECRET_FILE=str(cls.directory / (name + '-secret')),
@@ -50,7 +63,7 @@ class EcosystemTests(unittest.TestCase):
                 cls.envs[name] = (env, cwd, module)
                 cls.start(name)
             with sqlite3.connect(cls.directory / 'accounts/app.db') as db:
-                for user in ('alice', 'bob'):
+                for user in ('alice', 'bob', 'browser'):
                     db.execute('INSERT INTO users VALUES (?,?,?,?,?)', (user, 'google', user.title(), user + '@example.test', '2026-10-01T00:00:00+00:00'))
                     db.execute('INSERT INTO account_sessions VALUES (?,?,?)', (hashlib.sha256((user + '-token').encode()).hexdigest(), user, int(time.time()) + 10000))
         except Exception:
@@ -200,6 +213,77 @@ class EcosystemTests(unittest.TestCase):
         for app in ('bernoulli', 'quacktuaries'):
             self.assertEqual((ROOT / 'accounts/client/ecosystem.py').read_bytes(),
                              (ROOT.parent / app / 'app/ecosystem.py').read_bytes())
+            self.assertEqual((ROOT / 'accounts/client/account.html').read_bytes(),
+                             (ROOT.parent / app / 'app/templates/account.html').read_bytes())
+
+    def set_name(self, cookies, name):
+        page = self.request('accounts', 'GET', '/account/', cookies)
+        csrf = re.search(r'name="csrf_token" value="([^"]+)"', page.text)[1]
+        response = self.request('accounts', 'POST', '/account/profile', cookies,
+                                {'name': name, 'csrf_token': csrf})
+        self.assertEqual(response.status_code, 303, response.text)
+
+    def test_display_names_are_reusable_without_sharing_classrooms_or_seats(self):
+        alice = {'__Host-athenaeum_account': 'alice-token'}
+        bob = {'__Host-athenaeum_account': 'bob-token'}
+        try:
+            self.set_name(alice, 'Mr. Valente')
+            self.set_name(bob, 'Mr. Valente')
+            for app in ('bernoulli', 'quacktuaries'):
+                abandoned, _ = self.create_class(app, 'Mr. Valente', {})
+                sid, code = self.create_class(app, 'ignored form value', alice)
+                other, _ = self.create_class(app, 'ignored form value', bob)
+                teacher_path = f'/x/flip-flop/t/{abandoned}' if app == 'bernoulli' else f'/admin/s/{abandoned}'
+                self.assertEqual(self.request(app, 'GET', teacher_path, alice).status_code, 303)
+                teacher_path = f'/x/flip-flop/t/{other}' if app == 'bernoulli' else f'/admin/s/{other}'
+                self.assertEqual(self.request(app, 'GET', teacher_path, alice).status_code, 303)
+                self.join(app, code, 'ignored form value', alice)
+                self.join(app, code, 'ignored form value', bob)
+                fresh = {'__Host-athenaeum_account': 'alice-token'}
+                self.assertEqual(self.request(app, 'POST', '/session/join', fresh, {'join_code': code}).status_code, 303)
+                with sqlite3.connect(self.directory / app / 'app.db') as db:
+                    players = db.execute('SELECT id,name FROM players WHERE session_id=?', (sid,)).fetchall()
+                    self.assertEqual(len(players), 2)
+                    self.assertEqual([name for _, name in players], ['Mr. Valente', 'Mr. Valente'])
+                guest = {}
+                self.join(app, code, 'Guest learner', guest)
+                self.assertEqual(self.request(app, 'POST', '/session/join', {},
+                    {'join_code': code, 'player_name': 'Guest learner'}).status_code, 400)
+                self.join(app, code, 'Renamed guest', guest)
+                with sqlite3.connect(self.directory / app / 'app.db') as db:
+                    self.assertEqual(db.execute('SELECT count(*) FROM players WHERE session_id=?', (sid,)).fetchone()[0], 3)
+                self.set_name(alice, 'Ms. Rowan')
+                path = f'/x/flip-flop/s/{sid}' if app == 'bernoulli' else f'/s/{sid}'
+                self.assertIn('Ms. Rowan', self.request(app, 'GET', path, fresh).text)
+                with sqlite3.connect(self.directory / app / 'app.db') as db:
+                    names = db.execute('SELECT p.name FROM players p JOIN ecosystem_links l ON l.local_id=p.id '
+                                       "WHERE l.role='player' AND l.account_id='alice' AND p.session_id=?", (sid,)).fetchall()
+                    self.assertEqual(names, [('Ms. Rowan',)])
+                self.set_name(alice, 'Mr. Valente')
+        finally:
+            self.set_name(alice, 'Alice')
+            self.set_name(bob, 'Bob')
+
+    def test_concurrent_account_joins_recover_one_profile_and_one_seat(self):
+        from concurrent.futures import ThreadPoolExecutor
+        with sqlite3.connect(self.directory / 'accounts/app.db') as db:
+            db.execute('INSERT INTO users VALUES (?,?,?,?,?)', ('parallel', 'google', 'Parallel', 'parallel@example.test', '2026-10-01T00:00:00+00:00'))
+            db.execute('INSERT INTO account_sessions VALUES (?,?,?)',
+                       (hashlib.sha256(b'parallel-token').hexdigest(), 'parallel', int(time.time()) + 10000))
+        for app in ('bernoulli', 'quacktuaries'):
+            def login(_):
+                return self.request(app, 'POST', '/admin/login', {'__Host-athenaeum_account': 'parallel-token'}, {}).status_code
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                self.assertEqual(list(pool.map(login, range(2))), [303, 303])
+            teacher = {}
+            sid, code = self.create_class(app, 'Concurrent class', teacher)
+            def join(_):
+                return self.request(app, 'POST', '/session/join', {'__Host-athenaeum_account': 'parallel-token'}, {'join_code': code}).status_code
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                self.assertEqual(list(pool.map(join, range(2))), [303, 303])
+            with sqlite3.connect(self.directory / app / 'app.db') as db:
+                self.assertEqual(db.execute("SELECT count(*) FROM ecosystem_links WHERE account_id='parallel' AND role='teacher'").fetchone()[0], 1)
+                self.assertEqual(db.execute('SELECT count(*) FROM players WHERE session_id=?', (sid,)).fetchone()[0], 1)
 
     def test_teacher_profiles_recover_without_names_and_keep_classroom_ownership(self):
         for app in ('bernoulli', 'quacktuaries'):

@@ -8,21 +8,30 @@
 {% if error %}<p role="alert">Unable to sign in. Please try again.</p>{% endif %}
 {% if user %}
 <p>{{ user.name }}{% if user.kind == 'google' %} · {{ user.email }}{% else %} · Guest{% endif %}</p>
-{% if user.kind == 'guest' %}<p>Sign in with Google, then choose Save activity in an app to keep your guest results.</p>{% endif %}
+{% if user.kind == 'guest' %}<p>Sign in with Google, then save your guest activity from the app's Account page.</p>{% endif %}
 {% else %}<p>Sign in to save your activity.</p>{% endif %}
 <div class="account-actions">
 {% if google_enabled %}<form method="post" action="/auth/google"><input type="hidden" name="csrf_token" value="{{ csrf }}"><input type="hidden" name="return_to" value="{{ return_to }}"><button class="google-signin"><img src="/account/static/google-signin.png" alt="Sign in with Google" width="180" height="40"></button></form>
 {% else %}<p>Google sign-in is unavailable.</p>{% endif %}
-{% if not user %}<form method="post" action="/auth/guest"><input type="hidden" name="csrf_token" value="{{ csrf }}"><input type="hidden" name="return_to" value="{{ return_to }}"><button>Continue as guest</button></form>{% endif %}
+{% if not user %}<form method="post" action="/auth/guest"><input type="hidden" name="csrf_token" value="{{ csrf }}"><input type="hidden" name="return_to" value="{{ return_to }}"><button>Sign in as guest</button></form>{% endif %}
 {% if user %}<form method="post" action="/auth/logout"><input type="hidden" name="csrf_token" value="{{ csrf }}"><button>Sign out</button></form>{% endif %}
 </div>
-<h2>Apps</h2><ul>{% for app in apps %}<li><a href="/{{ app }}/">{{ app|capitalize }}</a> · <a href="/{{ app }}/account">Save activity</a></li>{% endfor %}</ul>
+{% if user and user.kind == 'google' %}
+<form class="account-profile" method="post" action="/account/profile">
+<input type="hidden" name="csrf_token" value="{{ csrf }}">
+<label for="display-name">Display name</label>
+<p class="account-hint" id="name-hint">Shown in the apps.</p>
+{% if profile_error %}<p role="alert">{{ profile_error }}</p>{% endif %}
+<div><input id="display-name" name="name" value="{{ user.name }}" maxlength="60" required autocomplete="nickname" aria-describedby="name-hint"><button>Save name</button></div>
+</form>
+{% endif %}
+<h2>Apps</h2><ul>{% for app in apps %}<li><a href="/{{ app }}/account">{{ app|capitalize }}</a></li>{% endfor %}</ul>
 {% if user and user.kind == 'google' %}<h2>Activity</h2>
 {% for record in records %}<article class="account-record"><h3>{{ record.app|capitalize }} · {{ record.activity|replace('_',' ')|title }}</h3><p><time>{{ record.occurred_at }}</time></p>
 <dl>{% for key,value in record.metrics.items() %}{% if value is not mapping and value is not sequence or value is string %}<dt>{{ key|replace('_',' ')|capitalize }}</dt><dd>{{ value }}</dd>{% endif %}{% endfor %}</dl>
 {% if record.context %}<details><summary>Activity details</summary><dl>{% for key,value in record.context.items() %}<dt>{{ key|replace('_',' ')|capitalize }}</dt><dd>{{ value }}</dd>{% endfor %}</dl></details>{% endif %}
 </article>{% else %}<p>No saved activity yet.</p>{% endfor %}
 <nav aria-label="History pages">{% if page>1 %}<a href="/account/?page={{ page-1 }}">Newer results</a>{% endif %} {% if has_next %}<a href="/account/?page={{ page+1 }}">Older results</a>{% endif %}</nav>
-<div class="account-actions"><a href="/account/export">Download your history</a><form method="post" action="/auth/logout-all"><input type="hidden" name="csrf_token" value="{{ csrf }}"><button>Sign out on every device</button></form></div>
+<p><a href="/account/export">Download your history</a></p>
 {% endif %}<p><a href="/privacy/">Privacy</a></p>
 </main></body></html>
