@@ -117,9 +117,9 @@ services:
       ACCOUNT_ORIGIN: ${ACCOUNT_ORIGIN:-https://valentemath.com}
       DB_PATH: /data/app.db
       SESSION_SECRET_FILE: /run/secrets/accounts_session
-      ACCOUNTS_APP_SECRETS: '{"bernoulli":"/run/secrets/bernoulli_session","quacktuaries":"/run/secrets/quacktuaries_session"}'
+      ACCOUNTS_APP_SECRETS: '{"bernoulli":"/run/secrets/bernoulli_session","quacktuaries":"/run/secrets/quacktuaries_session","srs":"/run/secrets/srs_session"}'
       FORWARDED_ALLOW_IPS: '*'
-    secrets: [accounts_session, bernoulli_session, quacktuaries_session]
+    secrets: [accounts_session, bernoulli_session, quacktuaries_session, srs_session]
     volumes:
       - type: bind
         source: ${DATA_ROOT:-/srv/athenaeum}/apps/accounts/data
@@ -186,6 +186,34 @@ services:
       - /tmp:size=16777216,mode=1777,noexec,nosuid,nodev
     networks: [apps]
 
+  srs:
+    <<: *runtime
+    labels:
+      sablier.enable: 'true'
+      sablier.group: ${COMPOSE_PROJECT_NAME:-athenaeum}-srs
+    image: ${SRS_IMAGE:-valentemath/srs:latest-athenaeum}
+    user: ${RUNTIME_UID:-10001}:${RUNTIME_GID:-10001}
+    mem_limit: 1g
+    environment:
+      APP_ENV: production
+      ROOT_PATH: /srs
+      PORT: '8000'
+      DB_PATH: /data/app.db
+      SESSION_SECRET_FILE: /run/secrets/srs_session
+      ACCOUNT_SERVICE_URL: http://accounts:8000
+      ATHENAEUM_APP_ID: srs
+      # Only our trusted containers can reach this unpublished app port.
+      FORWARDED_ALLOW_IPS: '*'
+    secrets: [srs_session]
+    volumes:
+      - type: bind
+        source: ${DATA_ROOT:-/srv/athenaeum}/apps/srs/data
+        target: /data
+        bind: {create_host_path: false}
+    tmpfs:
+      - /tmp:size=16777216,mode=1777,noexec,nosuid,nodev
+    networks: [apps]
+
 networks:
   control:
     internal: true
@@ -201,3 +229,5 @@ secrets:
     file: ${QUACKTUARIES_SECRET_FILE:-/etc/athenaeum/quacktuaries-session-secret}
   bernoulli_session:
     file: ${BERNOULLI_SECRET_FILE:-/etc/athenaeum/bernoulli-session-secret}
+  srs_session:
+    file: ${SRS_SECRET_FILE:-/etc/athenaeum/srs-session-secret}

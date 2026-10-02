@@ -1,6 +1,6 @@
 # On-demand applications
 
-The main Athenaeum website and Caddy remain running. Only the hosted Quacktuaries and Bernoulli services carry `sablier.enable=true`. Each has its own project-qualified group, such as `athenaeum-quacktuaries` and `athenaeum-bernoulli`.
+The main Athenaeum website and Caddy remain running. Only the hosted Quacktuaries, Bernoulli and SRS services carry `sablier.enable=true`. Each has its own project-qualified group, such as `athenaeum-quacktuaries` and `athenaeum-bernoulli`.
 
 ## Policy and routing
 

@@ -53,6 +53,17 @@ assert.equal(landing.status, 200);
 assert(landing.body.includes('Bernoulli') && landing.body.includes('/bernoulli/join'));
 assert.equal((await request('/bernoulli/join')).status, 200);
 assert.equal((await request('/projects/bernoulli/')).status, 200);
+// So does SRS, whose landing page is public and whose study pages start at shared sign-in.
+const srs = await request('/srs?mode=practice');
+assert.equal(srs.status, 308);
+assert.equal(srs.headers.location, '/srs/?mode=practice');
+const deck = await request('/srs/');
+assert.equal(deck.status, 200);
+assert(deck.body.includes('SRS') && deck.body.includes('/srs/start'));
+assert.equal((await request('/srs/_health')).status, 404);
+const study = await request('/srs/study');
+assert.equal(study.status, 303);
+assert.equal(study.headers.location, '/account/login?return_to=%2Fsrs%2Fstudy');
 const forged = await request(prefix + '/admin/dashboard', {
   headers: { 'X-Forwarded-Proto': 'http', 'X-Forwarded-Host': 'attacker.invalid', 'Forwarded': 'host=attacker.invalid;proto=http' },
 });

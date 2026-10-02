@@ -124,10 +124,11 @@ The VM uses these defaults:
 | Edge | `valentemath/athenaeum:latest-edge` |
 | Quacktuaries | `valentemath/quacktuaries:latest-athenaeum` |
 | Bernoulli | `valentemath/bernoulli:latest-athenaeum` |
+| SRS | `valentemath/srs:latest-athenaeum` |
 
-For a new system, use published images or follow [image builds](../development/image-builds.md) to publish from the workstation. Athenaeum, Quacktuaries and Bernoulli have independent releases. Public repositories need no VM registry credentials; private ones require `sudo docker login` with pull access.
+For a new system, use published images or follow [image builds](../development/image-builds.md) to publish from the workstation. Athenaeum, Quacktuaries, Bernoulli and SRS have independent releases. Public repositories need no VM registry credentials; private ones require `sudo docker login` with pull access.
 
-For disaster recovery, set compatible retained versions/digests from the selected backup in `/etc/athenaeum/compose.env` before pulling. Its `ATHENAEUM_IMAGE`, `EDGE_IMAGE`, `QUACKTUARIES_IMAGE` and `BERNOULLI_IMAGE` overrides take precedence over Compose defaults. Keep the matching image releases available independently of the old VM.
+For disaster recovery, set compatible retained versions/digests from the selected backup in `/etc/athenaeum/compose.env` before pulling. Its `ATHENAEUM_IMAGE`, `EDGE_IMAGE`, `QUACKTUARIES_IMAGE`, `BERNOULLI_IMAGE` and `SRS_IMAGE` overrides take precedence over Compose defaults. Keep the matching image releases available independently of the old VM.
 
 **VM:**
 

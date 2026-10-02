@@ -19,9 +19,9 @@
 </form>
 {% if return_to != '/account/' %}<p><a href="{{ return_to }}">Continue</a></p>{% endif %}
 {% endif %}
-<h2>Apps</h2><ul>{% for app in apps %}<li><a href="/{{ app }}/account">{{ app|capitalize }}</a></li>{% endfor %}</ul>
+<h2>Apps</h2><ul>{% for app in apps %}<li><a href="/{{ app }}/account">{{ app|app_name }}</a></li>{% endfor %}</ul>
 {% if user and user.kind == 'google' %}<h2>Activity</h2>
-{% for record in records %}<article class="account-record"><h3>{{ record.app|capitalize }} · {{ record.activity|replace('_',' ')|title }}</h3><p><time>{{ record.occurred_at }}</time></p>
+{% for record in records %}<article class="account-record"><h3>{{ record.app|app_name }} · {{ record.activity|replace('_',' ')|title }}</h3><p><time>{{ record.occurred_at }}</time></p>
 <dl>{% for key,value in record.metrics.items() %}{% if value is not mapping and value is not sequence or value is string %}<dt>{{ key|replace('_',' ')|capitalize }}</dt><dd>{{ value }}</dd>{% endif %}{% endfor %}</dl>
 {% if record.context %}<details><summary>Activity details</summary><dl>{% for key,value in record.context.items() %}<dt>{{ key|replace('_',' ')|capitalize }}</dt><dd>{{ value }}</dd>{% endfor %}</dl></details>{% endif %}
 </article>{% else %}<p>No saved activity yet.</p>{% endfor %}

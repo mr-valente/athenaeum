@@ -22,9 +22,10 @@ build athenaeum
 # Or:
 build quacktuaries
 build bernoulli
+build srs
 ```
 
-Each project has its own version; the classroom apps publish both standalone and hosted variants. See [image builds](../development/image-builds.md) for first versions and build checks.
+Each project has its own version; the apps publish both standalone and hosted variants. See [image builds](../development/image-builds.md) for first versions and build checks.
 
 After the pushes succeed, run on the VM during a break in classroom use:
 

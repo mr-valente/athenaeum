@@ -22,6 +22,8 @@ from athenaeum_ops.runtime import select_images
 from athenaeum_ops.storage import LocalStore, OCIStore
 
 AGE = os.environ.get('ATHENAEUM_TEST_AGE') or shutil.which('age') or ''
+# The table each fixture database gets its one synthetic row in.
+PROFILES = {'accounts': 'users', 'srs': 'learners'}
 
 
 class Fixture(unittest.TestCase):
@@ -37,13 +39,14 @@ class Fixture(unittest.TestCase):
             self.create_database(app)
         for name in ('state', 'objects'):
             (self.root / name).mkdir(mode=0o700)
-        for name in ('secret', 'bernoulli-secret', 'accounts-secret', 'compose.env', 'compose.yaml'):
+        for name in ('secret', 'bernoulli-secret', 'srs-secret', 'accounts-secret', 'compose.env', 'compose.yaml'):
             (self.root / name).write_text('fixture-' * 8)
             (self.root / name).chmod(0o600)
         self.cfg = {'schema': 1, 'mode': 'local', 'filesystem_uuid': '', 'data_root': str(self.data),
                     'state_dir': str(self.root / 'state'), 'compose_project': 'fixture',
                     'compose_files': [str(self.root / 'compose.yaml')], 'compose_env': str(self.root / 'compose.env'),
                     'session_secret': str(self.root / 'secret'), 'bernoulli_session_secret': str(self.root / 'bernoulli-secret'),
+                    'srs_session_secret': str(self.root / 'srs-secret'),
                     'accounts_session_secret': str(self.root / 'accounts-secret'),
                     'recipient': 'age1' + 'a' * 58,
                     'age_binary': AGE, 'bucket_cap_bytes': 10_000_000, 'max_snapshot_bytes': 2_000_000,
@@ -59,7 +62,7 @@ class Fixture(unittest.TestCase):
         with contextlib.closing(sqlite3.connect(self.data / 'apps' / app / 'data/app.db')) as db, db:
             for table in sorted(APPS[app]['tables']):
                 db.execute(f'CREATE TABLE {table} (id INTEGER PRIMARY KEY, value TEXT)')
-            table = 'users' if app == 'accounts' else 'teachers'
+            table = PROFILES.get(app, 'teachers')
             db.execute(f"INSERT INTO {table}(value) VALUES ('synthetic fixture')")
 
 
@@ -96,7 +99,7 @@ class Guards(Fixture):
                     self.fail('second lock must fail')
 
     def test_missing_secret_symlink_and_low_disk_fail(self):
-        for name in ('secret', 'bernoulli-secret', 'accounts-secret'):
+        for name in ('secret', 'bernoulli-secret', 'srs-secret', 'accounts-secret'):
             secret = self.root / name
             secret.unlink()
             with self.assertRaises(Failure):
@@ -124,8 +127,8 @@ class Guards(Fixture):
         both = {'schema': 2, 'applications': {app: {'hook': 'sqlite-v1', 'database': {}} for app in APPS}}
         one = {'schema': 1, 'application': 'quacktuaries', 'hook': 'sqlite-v1', 'database': {}}
         self.assertEqual(select_images(['sha256:a'], one), {'quacktuaries': 'sha256:a'})
-        self.assertEqual(select_images(['accounts=sha256:c', 'bernoulli=sha256:b', 'quacktuaries=sha256:a'], both),
-                         {'accounts': 'sha256:c', 'quacktuaries': 'sha256:a', 'bernoulli': 'sha256:b'})
+        self.assertEqual(select_images(['accounts=sha256:c', 'bernoulli=sha256:b', 'quacktuaries=sha256:a', 'srs=sha256:d'], both),
+                         {'accounts': 'sha256:c', 'quacktuaries': 'sha256:a', 'bernoulli': 'sha256:b', 'srs': 'sha256:d'})
         for values, manifest in ((['sha256:a'], both), (['quacktuaries=sha256:a'], both),
                                  (['quacktuaries=sha256:a', 'quacktuaries=sha256:b'], both),
                                  (['bernoulli=sha256:b'], one), (['other=sha256:c', 'quacktuaries=sha256:a'], one)):
@@ -200,10 +203,11 @@ class EncryptedRecovery(Fixture):
         manifest = restore(self.cfg, target, self.identity, result['snapshot'], store=self.store)
         self.assertEqual(manifest['schema'], 2)
         for app in APPS:
-            self.assertEqual(manifest['applications'][app]['database']['row_counts']['users' if app == 'accounts' else 'teachers'], 1)
+            self.assertEqual(manifest['applications'][app]['database']['row_counts'][PROFILES.get(app, 'teachers')], 1)
             self.assertTrue((target / 'apps' / app / 'app.db').is_file())
         self.assertEqual((target / 'secrets/quacktuaries-session-secret').read_bytes(), (self.root / 'secret').read_bytes())
         self.assertEqual((target / 'secrets/bernoulli-session-secret').read_bytes(), (self.root / 'bernoulli-secret').read_bytes())
+        self.assertEqual((target / 'secrets/srs-session-secret').read_bytes(), (self.root / 'srs-secret').read_bytes())
         self.assertEqual((target / 'secrets/accounts-session-secret').read_bytes(), (self.root / 'accounts-secret').read_bytes())
         with self.assertRaises(Failure):
             restore(self.cfg, target, self.identity, result['snapshot'], store=self.store)
@@ -235,6 +239,7 @@ class EncryptedRecovery(Fixture):
 
     def test_new_app_without_database_is_archived_as_key_only(self):
         (self.data / 'apps/bernoulli/data/app.db').unlink()
+        (self.data / 'apps/srs/data/app.db').unlink()
         (self.data / 'apps/accounts/data/app.db').unlink()
         result = backup(self.cfg, self.store, {'quacktuaries': self.images['quacktuaries']})
         target = self.root / 'restored'

@@ -13,9 +13,9 @@ ENV = STATE / 'compose.env'
 # Stateful apps and their local signing-key files. Quacktuaries keeps the
 # original unsuffixed name so existing local sessions stay valid.
 APPS = {'quacktuaries': 'session-secret', 'bernoulli': 'bernoulli-session-secret',
-        'accounts': 'accounts-session-secret'}
+        'srs': 'srs-session-secret', 'accounts': 'accounts-session-secret'}
 PRIVATE = {'DATA_ROOT', 'RUNTIME_UID', 'RUNTIME_GID', 'SITE_DOMAIN', 'ACME_EMAIL', 'EDGE_IMAGE',
-           'ATHENAEUM_IMAGE', 'LOCAL_HTTP_PORT', 'LOCAL_HTTPS_PORT', 'ACCOUNT_ORIGIN',
+           'ATHENAEUM_IMAGE', 'LOCAL_BIND', 'LOCAL_HTTP_PORT', 'LOCAL_HTTPS_PORT', 'ACCOUNT_ORIGIN',
            *(f'{app.upper()}_{suffix}' for app in APPS for suffix in ('SECRET_FILE', 'IMAGE'))}
 
 

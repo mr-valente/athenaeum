@@ -6,8 +6,9 @@ services:
       dockerfile: docker/edge.Dockerfile
     pull_policy: never
     ports: !override
-      - '127.0.0.1:${LOCAL_HTTP_PORT:-8080}:8080'
-      - '127.0.0.1:${LOCAL_HTTPS_PORT:-8443}:8443'
+      # Loopback unless LOCAL_BIND names another address of this machine, such as its tailnet IP.
+      - '${LOCAL_BIND:-127.0.0.1}:${LOCAL_HTTP_PORT:-8080}:8080'
+      - '${LOCAL_BIND:-127.0.0.1}:${LOCAL_HTTPS_PORT:-8443}:8443'
     environment:
       LOCAL_HTTPS_PORT: ${LOCAL_HTTPS_PORT:-8443}
     command: [caddy, run, --config, /etc/caddy/Caddyfile.local, --adapter, caddyfile]
@@ -20,10 +21,13 @@ services:
       dockerfile: accounts/Dockerfile
     pull_policy: never
     environment:
-      ACCOUNT_ORIGIN: https://localhost:${LOCAL_HTTPS_PORT:-8443}
+      ACCOUNT_ORIGIN: https://${SITE_DOMAIN:-localhost}:${LOCAL_HTTPS_PORT:-8443}
   quacktuaries:
     build: ../quacktuaries
     pull_policy: never
   bernoulli:
     build: ../bernoulli
+    pull_policy: never
+  srs:
+    build: ../srs
     pull_policy: never

@@ -6,7 +6,7 @@ Keep an encrypted backup outside Oracle, its SHA256, the private age identity, s
 
 Each verified snapshot contains:
 
-- Each registered SQLite database (Quacktuaries, Bernoulli, accounts), captured through SQLite's online backup API.
+- Each registered SQLite database (Quacktuaries, Bernoulli, SRS, accounts), captured through SQLite's online backup API.
 - Each app's persistent session-signing key, plus the account service's private Google credentials.
 - Compose definitions, Compose environment, and recovery configuration.
 - A manifest with file checksums, per-app database schema/counts, architecture and running image IDs/digests.
@@ -221,7 +221,8 @@ athenaeumctl restore-test \
   --target /var/tmp/athenaeum-restore-REPLACE_UNIQUE_NAME \
   --identity /run/athenaeum-restore-identity \
   --image quacktuaries=REPLACE_IMMUTABLE_IMAGE_ID_OR_REPOSITORY_DIGEST \
-  --image bernoulli=REPLACE_IMMUTABLE_IMAGE_ID_OR_REPOSITORY_DIGEST
+  --image bernoulli=REPLACE_IMMUTABLE_IMAGE_ID_OR_REPOSITORY_DIGEST \
+  --image srs=REPLACE_IMMUTABLE_IMAGE_ID_OR_REPOSITORY_DIGEST
 ```
 
 Each image must already be present and match the snapshot's record for that app. Supply exactly one `--image APP=…` per restored database; a bare reference is accepted only for a snapshot holding a single database, such as one made before Bernoulli's registration. The test runs each app in turn on a copy of its recovered data in an isolated container and leaves the validated restore directory for inspection. `restore` validates data without executing an image; use it first when reviewing a rebuild or architecture change. Remove temporary private identities after use.
@@ -234,7 +235,7 @@ Choose a retained version compatible with the current database. Edit `/etc/athen
 QUACKTUARIES_IMAGE=valentemath/quacktuaries:v0.1.0-athenaeum
 ```
 
-Then run `athenaeumctl docker pull --deploy` and `athenaeumctl verify`. Use `BERNOULLI_IMAGE`, `ATHENAEUM_IMAGE` or `EDGE_IMAGE` for the other services. Remove a pin when ready to follow the moving tag again. This takes a backup but does not reverse database migrations; incompatible schemas need the deliberate data-recovery procedure above.
+Then run `athenaeumctl docker pull --deploy` and `athenaeumctl verify`. Use `BERNOULLI_IMAGE`, `SRS_IMAGE`, `ATHENAEUM_IMAGE` or `EDGE_IMAGE` for the other services. Remove a pin when ready to follow the moving tag again. This takes a backup but does not reverse database migrations; incompatible schemas need the deliberate data-recovery procedure above.
 
 ## Cleanup after a drill or recovery
 

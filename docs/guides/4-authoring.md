@@ -14,7 +14,8 @@ content/
 ├── statistics/
 │   ├── index.md             AP Statistics introduction
 │   ├── bernoulli.md         Bernoulli app landing page
-│   └── quacktuaries.md      Quacktuaries app landing page
+│   ├── quacktuaries.md      Quacktuaries app landing page
+│   └── srs.md               SRS app landing page
 └── projects/
     ├── index.md             Projects introduction
     ├── example.md           Draft Markdown example
@@ -22,7 +23,7 @@ content/
         └── example-data.csv
 ```
 
-The home page lists **AP Statistics** and **Projects**. Those same sections appear in the header. AP Statistics lists **Bernoulli** and **Quacktuaries**. The draft example is hidden. A folder of downloads does not become a section unless it contains published Markdown pages.
+The home page lists **AP Statistics** and **Projects**. Those same sections appear in the header. AP Statistics lists **Bernoulli**, **Quacktuaries** and **SRS**. The draft example is hidden. A folder of downloads does not become a section unless it contains published Markdown pages.
 
 | I want to… | Edit or create… |
 | --- | --- |
@@ -144,7 +145,7 @@ Names are lowercased; spaces and underscores become hyphens. Use ASCII letters, 
 
 Missing parent indexes are generated from published descendants. An empty directory builds a minimal home page. Each section lists its immediate children; the header lists top-level pages. Listings sort by ascending `order`, then title, then URL. Generated indexes use order `0`; add an `index.md` to customize one.
 
-`/quacktuaries/` and `/bernoulli/` are reserved for the applications. Register future application slugs in `deploy/reserved-paths.json`; this reserves their entire first URL segment. System routes such as `/404/`, `/_health`, `/_content/`, and `/_astro/` cannot be content routes.
+`/quacktuaries/`, `/bernoulli/` and `/srs/` are reserved for the applications. Register future application slugs in `deploy/reserved-paths.json`; this reserves their entire first URL segment. System routes such as `/404/`, `/_health`, `/_content/`, and `/_astro/` cannot be content routes.
 
 ## Frontmatter
 

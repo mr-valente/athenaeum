@@ -24,6 +24,8 @@ from .database import Database
 
 
 logger = logging.getLogger(__name__)
+# Apps whose display name is not their ID capitalized.
+APP_NAMES = {'srs': 'SRS'}
 
 
 def log_google_failure(phase, exc):
@@ -111,6 +113,7 @@ def create_app(settings: Settings):
                        session_cookie='athenaeum_oauth', max_age=600,
                        https_only=settings.secure, same_site='lax', path='/')
     templates = Jinja2Templates(directory=str(Path(__file__).parent / 'templates'))
+    templates.env.filters['app_name'] = lambda app: APP_NAMES.get(app, app.capitalize())
     assets = Path(__file__).parent / 'static'
     app.mount('/account/static', StaticFiles(directory=assets), name='account_static')
     oauth = OAuth()
