@@ -106,6 +106,9 @@ sample context. Quacktuaries publishes one completed player run with score,
 interval coverage/width, sampling/resource use, policies and scoring settings.
 SRS publishes one summary per study day with cards answered, new cards, minutes
 and the percentage recalled among cards seen before, revised as the day goes on.
+Statistically Speaking publishes one revealed Full Monty game per Google-linked
+contestant: the decision, whether it won, whether the first pick was right, and
+the table, game number and rule in force.
 Active-game summaries and unrevealed truths are not exposed. Raw details appear
 in the JSON export; the overview displays scalar metrics and context.
 

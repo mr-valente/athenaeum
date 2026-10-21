@@ -54,6 +54,23 @@ with sqlite3.connect('file:/data/app.db?mode=ro',uri=True) as db:
  orphans=db.execute('SELECT count(*) FROM reviews WHERE learner_id NOT IN (SELECT id FROM learners)').fetchone()[0]
  assert orphans==0
 print('Restored application HTTP and saved study history verified.')
+''', 'statistically-speaking': r'''
+import json,sqlite3,urllib.request
+with urllib.request.urlopen('http://127.0.0.1:8000/_health',timeout=3) as r:
+ assert r.status==200 and json.load(r)['status']=='ok'
+with urllib.request.urlopen('http://127.0.0.1:8000/',timeout=3) as r:
+ assert b'Statistically Speaking' in r.read()
+with sqlite3.connect('file:/data/app.db?mode=ro',uri=True) as db:
+ assert db.execute('PRAGMA integrity_check').fetchone()[0]=='ok'
+ for table in ('teachers','sessions','players','full_monty_pairs','full_monty_games','full_monty_votes'):
+  db.execute('SELECT count(*) FROM '+table).fetchone()
+ orphans=db.execute('SELECT count(*) FROM full_monty_games WHERE session_id NOT IN (SELECT id FROM sessions)').fetchone()[0]
+ assert orphans==0
+ row=db.execute("SELECT id,status FROM sessions WHERE kind='full_monty' ORDER BY id LIMIT 1").fetchone()
+ if row:
+  with urllib.request.urlopen('http://127.0.0.1:8000/x/full-monty/s/'+row[0]+'/state',timeout=3) as r:
+   assert json.load(r)['session']['status']==row[1]
+print('Restored application HTTP and saved session state verified.')
 ''', 'accounts': r'''
 import json,sqlite3,urllib.request
 with urllib.request.urlopen('http://127.0.0.1:8000/_health',timeout=3) as r:

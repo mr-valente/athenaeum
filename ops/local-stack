@@ -8,15 +8,23 @@ import subprocess
 import sys
 
 ROOT = Path(__file__).resolve().parent.parent
+
+
+def variable(app):
+    """The environment-variable stem for an app: its name upper-cased, hyphens as underscores."""
+    return app.upper().replace('-', '_')
+
+
 STATE = ROOT / '.state' / 'local'
 ENV = STATE / 'compose.env'
 # Stateful apps and their local signing-key files. Quacktuaries keeps the
 # original unsuffixed name so existing local sessions stay valid.
 APPS = {'quacktuaries': 'session-secret', 'bernoulli': 'bernoulli-session-secret',
-        'srs': 'srs-session-secret', 'accounts': 'accounts-session-secret'}
+        'srs': 'srs-session-secret', 'statistically-speaking': 'statistically-speaking-session-secret',
+        'accounts': 'accounts-session-secret'}
 PRIVATE = {'DATA_ROOT', 'RUNTIME_UID', 'RUNTIME_GID', 'SITE_DOMAIN', 'ACME_EMAIL', 'EDGE_IMAGE',
            'ATHENAEUM_IMAGE', 'LOCAL_BIND', 'LOCAL_HTTP_PORT', 'LOCAL_HTTPS_PORT', 'ACCOUNT_ORIGIN',
-           *(f'{app.upper()}_{suffix}' for app in APPS for suffix in ('SECRET_FILE', 'IMAGE'))}
+           *(f'{variable(app)}_{suffix}' for app in APPS for suffix in ('SECRET_FILE', 'IMAGE'))}
 
 
 def initialize():
@@ -37,8 +45,8 @@ def initialize():
                 sys.exit(f'Existing local {app} data has no signing key. Restore {name}; refusing to invalidate saved sessions.')
             with open(secret, 'x', opener=lambda path, flags: os.open(path, flags, 0o600)) as file:
                 file.write(secrets.token_hex(32) + '\n')
-        values[f'{app.upper()}_SECRET_FILE'] = str(secret)
-        values[f'{app.upper()}_IMAGE'] = f'{app}:athenaeum-local'
+        values[f'{variable(app)}_SECRET_FILE'] = str(secret)
+        values[f'{variable(app)}_IMAGE'] = f'{app}:athenaeum-local'
     # Keep saved settings such as ports; only add keys a newer stack introduced.
     present = {line.split('=', 1)[0] for line in ENV.read_text().splitlines() if '=' in line} if ENV.exists() else set()
     with open(ENV, 'a', opener=lambda path, flags: os.open(path, flags, 0o600)) as file:

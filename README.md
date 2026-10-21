@@ -7,7 +7,8 @@ Caddy (HTTPS)
   ├─ /                → Athenaeum static website
   ├─ /quacktuaries/   → Quacktuaries classroom app
   ├─ /bernoulli/      → Bernoulli coin-flip experiments
-  └─ /srs/            → SRS spaced repetition flashcards
+  ├─ /srs/            → SRS spaced repetition flashcards
+  └─ /statistically-speaking/ → Statistically Speaking game-show rounds
 
 Block volume → persistent data
 Oracle bucket → encrypted backups
@@ -34,6 +35,7 @@ build athenaeum
 build quacktuaries
 build bernoulli
 build srs
+build statistically-speaking
 ```
 
 Each project has its own image repository and version counter. Athenaeum publishes its site and edge; each app publishes standalone and Athenaeum variants together. See [image builds](docs/development/image-builds.md).

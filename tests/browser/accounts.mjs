@@ -101,7 +101,7 @@ try {
   await page.getByRole('button', { name: 'Save name', exact: true }).click();
   await expect(page.getByLabel('Display name')).toHaveValue('Dr. Rowan');
   assert.equal(await page.getByRole('button', { name: 'Sign in with Google' }).count(), 0);
-  for (const [app, name] of [['bernoulli', 'Bernoulli'], ['quacktuaries', 'Quacktuaries'], ['srs', 'SRS']]) {
+  for (const [app, name] of [['bernoulli', 'Bernoulli'], ['quacktuaries', 'Quacktuaries'], ['srs', 'SRS'], ['statistically-speaking', 'Statistically Speaking']]) {
     const link = page.getByRole('link', { name, exact: true });
     assert.equal(await link.count(), 1);
     assert.equal(await link.getAttribute('href'), '/' + app + '/account');

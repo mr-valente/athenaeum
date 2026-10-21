@@ -64,6 +64,17 @@ assert.equal((await request('/srs/_health')).status, 404);
 const study = await request('/srs/study');
 assert.equal(study.status, 303);
 assert.equal(study.headers.location, '/account/login?return_to=%2Fsrs%2Fstudy');
+// Statistically Speaking keeps Bernoulli's shape: a public landing page and a hosted join.
+const show = await request('/statistically-speaking?code=ABC123');
+assert.equal(show.status, 308);
+assert.equal(show.headers.location, '/statistically-speaking/?code=ABC123');
+const stage = await request('/statistically-speaking/');
+assert.equal(stage.status, 200);
+assert(stage.body.includes('Statistically Speaking') && stage.body.includes('/statistically-speaking/join'));
+assert.equal((await request('/statistically-speaking/_health')).status, 404);
+const seat = await request('/statistically-speaking/join');
+assert.equal(seat.status, 303);
+assert.equal(seat.headers.location, '/account/login?return_to=%2Fstatistically-speaking%2Fjoin');
 const forged = await request(prefix + '/admin/dashboard', {
   headers: { 'X-Forwarded-Proto': 'http', 'X-Forwarded-Host': 'attacker.invalid', 'Forwarded': 'host=attacker.invalid;proto=http' },
 });
