@@ -16,7 +16,7 @@ test('shared accounts stays awake with private API and outbound Google access', 
   assert.equal(account.labels, undefined);
   assert.equal(account.ports, undefined);
   assert.deepEqual(account.networks, ['apps', 'default']);
-  assert.deepEqual(account.secrets, ['accounts_session', 'bernoulli_session', 'quacktuaries_session', 'srs_session']);
+  assert.deepEqual(account.secrets, ['accounts_session', 'bernoulli_session', 'quacktuaries_session', 'srs_session', 'statistically-speaking_session']);
   assert(routes.includes('handle /internal/*'));
   assert(routes.includes('handle /auth/*'));
   assert(routes.includes('header_up -Cookie'));
@@ -24,7 +24,7 @@ test('shared accounts stays awake with private API and outbound Google access', 
 
 test('only app services opt in, with independent project-qualified groups', () => {
   const managed = Object.entries(compose.services).filter(([, service]: [string, any]) => service.labels?.['sablier.enable'] === 'true');
-  assert.deepEqual(managed.map(([name]) => name), ['quacktuaries', 'bernoulli', 'srs']);
+  assert.deepEqual(managed.map(([name]) => name), ['quacktuaries', 'bernoulli', 'srs', 'statistically-speaking']);
   const groups = managed.map(([name, service]: [string, any]) => {
     assert.equal(service.labels['sablier.group'], '${COMPOSE_PROJECT_NAME:-athenaeum}-' + name);
     assert.deepEqual(service.networks, ['apps']);
@@ -78,7 +78,8 @@ test('every managed app takes its session from a tier, and each tier carries its
   // Both the dynamic and the blocking directive pass the tier's duration on every request.
   assert.equal(snippets.match(/session_duration \{args\[3\]\}/g)?.length, 2);
   const routed = new Map(routes.split('\n').filter((line) => line.startsWith('import ')).map((line) => {
-    const [, tier, prefix, service, name] = line.split(' ');
+    // The display name may be quoted when it has a space.
+    const [, tier, prefix, service, name] = line.match(/^import (\S+) (\S+) (\S+) ("[^"]+"|\S+)$/)!;
     assert.ok(tier in tiers, `${service} names a tier`);
     assert.equal(prefix, '/' + service);
     assert.ok(name);
@@ -86,7 +87,7 @@ test('every managed app takes its session from a tier, and each tier carries its
   }));
   const managed = Object.entries(compose.services).filter(([, service]: [string, any]) => service.labels?.['sablier.enable'] === 'true').map(([name]) => name);
   assert.deepEqual([...routed.keys()], managed);
-  assert.deepEqual([...routed.values()], ['light', 'light', 'light']);
+  assert.deepEqual([...routed.values()], ['light', 'light', 'light', 'light']);
 });
 
 test('the shortest tier is the default for adopted apps; verify renews them at their tier', () => {

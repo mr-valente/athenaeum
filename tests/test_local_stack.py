@@ -16,13 +16,16 @@ class LocalSetupTest(unittest.TestCase):
             initialize.__globals__['STATE'] = state
             initialize.__globals__['ENV'] = state / 'compose.env'
             initialize()
-            secrets = {name: (state / name).read_bytes() for name in ('session-secret', 'bernoulli-session-secret', 'srs-session-secret')}
+            secrets = {name: (state / name).read_bytes() for name in ('session-secret', 'bernoulli-session-secret', 'srs-session-secret', 'statistically-speaking-session-secret')}
             config = (state / 'compose.env').read_bytes()
             self.assertIn(b'BERNOULLI_SECRET_FILE=', config)
             self.assertIn(b'SRS_SECRET_FILE=', config)
+            self.assertIn(b'STATISTICALLY_SPEAKING_SECRET_FILE=', config)  # hyphens become underscores
+            self.assertNotIn(b'STATISTICALLY-SPEAKING', config)
             (state / 'apps/quacktuaries/data/app.db').write_bytes(b'fixture')
             (state / 'apps/bernoulli/data/app.db').write_bytes(b'fixture')
             (state / 'apps/srs/data/app.db').write_bytes(b'fixture')
+            (state / 'apps/statistically-speaking/data/app.db').write_bytes(b'fixture')
             initialize()
             for name, before in secrets.items():
                 self.assertEqual((state / name).read_bytes(), before)
@@ -49,6 +52,7 @@ class LocalSetupTest(unittest.TestCase):
             self.assertIn('BERNOULLI_SECRET_FILE=', text)
             self.assertIn('BERNOULLI_IMAGE="bernoulli:athenaeum-local"', text)
             self.assertIn('SRS_IMAGE="srs:athenaeum-local"', text)
+            self.assertIn('STATISTICALLY_SPEAKING_IMAGE="statistically-speaking:athenaeum-local"', text)
             self.assertEqual(text.count('LOCAL_HTTPS_PORT='), 1)
             self.assertEqual(text.count('QUACKTUARIES_SECRET_FILE='), 1)
 

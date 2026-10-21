@@ -1,6 +1,6 @@
 # Architecture and application contracts
 
-One Ubuntu 26.04 ARM VM runs Caddy, a static website, Quacktuaries, Bernoulli, SRS, and a shared account service. Cloudflare supplies DNS; Caddy terminates HTTPS. Images are built on the workstation, published to Docker Hub, and deployed manually with `athenaeumctl`. The hourly backup and the quarter-hourly host report are the scheduled Athenaeum jobs.
+One Ubuntu 26.04 ARM VM runs Caddy, a static website, Quacktuaries, Bernoulli, SRS, Statistically Speaking, and a shared account service. Cloudflare supplies DNS; Caddy terminates HTTPS. Images are built on the workstation, published to Docker Hub, and deployed manually with `athenaeumctl`. The hourly backup and the quarter-hourly host report are the scheduled Athenaeum jobs.
 
 ```text
 Internet → Caddy edge
@@ -8,7 +8,8 @@ Internet → Caddy edge
              ├─ /auth/, /account/ → shared accounts
              ├─ /quacktuaries/   → Quacktuaries
              ├─ /bernoulli/      → Bernoulli
-             └─ /srs/            → SRS
+             ├─ /srs/            → SRS
+             └─ /statistically-speaking/ → Statistically Speaking
 
 /srv/athenaeum → persistent app data and Caddy state
 Oracle Object Storage ← encrypted, verified database/key/config snapshots
@@ -24,6 +25,7 @@ Oracle Object Storage ← encrypted, verified database/key/config snapshots
 | `quacktuaries` | `valentemath/quacktuaries:latest-athenaeum` | HTTP 8000 | `/srv/athenaeum/apps/quacktuaries/data/app.db` and persistent signing key |
 | `bernoulli` | `valentemath/bernoulli:latest-athenaeum` | HTTP 8000 | `/srv/athenaeum/apps/bernoulli/data/app.db` and persistent signing key |
 | `srs` | `valentemath/srs:latest-athenaeum` | HTTP 8000 | `/srv/athenaeum/apps/srs/data/app.db` and persistent signing key |
+| `statistically-speaking` | `valentemath/statistically-speaking:latest-athenaeum` | HTTP 8000 | `/srv/athenaeum/apps/statistically-speaking/data/app.db` and persistent signing key |
 | `sablier` | `sablierapp/sablier:1.18.0` | Private control HTTP 10000 | None; config/theme in Git, idle timers in memory |
 | `socket-proxy` | `lscr.io/linuxserver/socket-proxy:3.4.4-r0-ls97` | Private Docker API HTTP 2375 | None |
 
@@ -33,7 +35,7 @@ The private `apps` network connects trusted owned applications; Docker supplies 
 
 Caddy and Sablier additionally share the private `control` network, and Sablier and the socket proxy the private `socket` network; apps can reach neither Sablier's API nor the Docker API. Each hosted app has its own Sablier group and sleeps after its session tier's idle period without requests (72 hours for a light app, down to one hour for the heaviest). The website is never managed by Sablier. See [on-demand applications](sablier.md) for loading-page routing, security, session behavior and verification.
 
-Caddy redirects `www` to the apex, preserves queries on each app's slash redirect (`/quacktuaries`, `/bernoulli`, `/srs`), and strips the prefix upstream. Each app generates prefixed links, forms, assets and redirects, and hides its `/_health` probe from the public route. Cookies are per app (`quacktuaries_session`, `bernoulli_session`, `srs_session`): host-only, scoped to the app's prefix, HttpOnly, SameSite=Lax, and Secure in production. Same-domain apps share a browser origin.
+Caddy redirects `www` to the apex, preserves queries on each app's slash redirect (`/quacktuaries`, `/bernoulli`, `/srs`, `/statistically-speaking`), and strips the prefix upstream. Each app generates prefixed links, forms, assets and redirects, and hides its `/_health` probe from the public route. Cookies are per app (`quacktuaries_session`, `bernoulli_session`, `srs_session`, `statistically_speaking_session`): host-only, scoped to the app's prefix, HttpOnly, SameSite=Lax, and Secure in production. Same-domain apps share a browser origin.
 
 The `accounts` infrastructure service owns shared login and performance history. It stays awake, joins the outbound network to reach Google, and stores `/srv/athenaeum/apps/accounts/data/app.db`. Its private credential file is `/etc/athenaeum/accounts-session-secret`; its image is `valentemath/athenaeum:latest-accounts`. The shared root cookie complements the per-app classroom cookies. See [shared accounts](accounts.md) and [Google setup](../development/google-login.md).
 
@@ -53,7 +55,7 @@ The `accounts` infrastructure service owns shared login and performance history.
 | `/opt/athenaeum/operations` | Installed host code and its Python environment |
 | `/etc/athenaeum/compose.env` | Private host settings and optional image overrides |
 | `/etc/athenaeum/recovery.json` | Disk UUID, backup settings and the host report's object name |
-| `/etc/athenaeum/quacktuaries-session-secret`, `/etc/athenaeum/bernoulli-session-secret`, `/etc/athenaeum/srs-session-secret`, `/etc/athenaeum/accounts-session-secret` | Persistent signing keys and account credentials, mode 0600, owner 10001 |
+| `/etc/athenaeum/quacktuaries-session-secret`, `/etc/athenaeum/bernoulli-session-secret`, `/etc/athenaeum/srs-session-secret`, `/etc/athenaeum/statistically-speaking-session-secret`, `/etc/athenaeum/accounts-session-secret` | Persistent signing keys and account credentials, mode 0600, owner 10001 |
 | `/var/lib/athenaeum` | Private host operation lock, backup status and installer rollback files |
 | `/srv/athenaeum` | Exact-UUID mounted data volume |
 
@@ -69,6 +71,6 @@ Each app owns its repository, Dockerfile, Docker Hub repository, Fish build entr
 
 Record the app's service name, URL prefix, internal port, health behavior, data/secret paths, browser-state namespace, background work, and backup/restore method. Reserve its prefix in `deploy/reserved-paths.json`; add its Caddy routes, Compose service and Markdown project page. Keep stateless apps explicitly stateless.
 
-Host tooling registers stateful apps in `ops/athenaeum_ops/common.py` (`APPS`): the entry names the app's signing-key setting, public prefix and required SQLite tables, and every service list, preflight check, Compose validation, snapshot, restore and verification probe derives from it. A restore-test probe per app lives in `runtime.py`, and the local stack and host installer keep their own key/directory lists. An unregistered data directory still makes the backup fail closed. Use the [app-creation skill](../../skills/athenaeum-app/SKILL.md).
+Host tooling registers stateful apps in `ops/athenaeum_ops/common.py` (`APPS`): the entry names the app's signing-key setting, public prefix and required SQLite tables, and every service list, preflight check, Compose validation, snapshot, restore and verification probe derives from it. Environment variable names derive from the service name with hyphens as underscores (`STATISTICALLY_SPEAKING_IMAGE`); everything else uses the name as written. A restore-test probe per app lives in `runtime.py`, and the local stack and host installer keep their own key/directory lists. An unregistered data directory still makes the backup fail closed. Use the [app-creation skill](../../skills/athenaeum-app/SKILL.md).
 
-The shared CSS contract is defined in [style.md](../../style.md). Athenaeum uses the dark After hours theme; other applications adopt a pinned copy explicitly. SRS bundles a pinned copy; neither classroom app has adopted it yet.
+The shared CSS contract is defined in [style.md](../../style.md). Athenaeum uses the dark After hours theme; other applications adopt a pinned copy explicitly. SRS and Statistically Speaking bundle pinned copies; neither of the older classroom apps has adopted it yet.

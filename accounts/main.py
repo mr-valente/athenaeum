@@ -25,7 +25,7 @@ from .database import Database
 
 logger = logging.getLogger(__name__)
 # Apps whose display name is not their ID capitalized.
-APP_NAMES = {'srs': 'SRS'}
+APP_NAMES = {'srs': 'SRS', 'statistically-speaking': 'Statistically Speaking'}
 
 
 def log_google_failure(phase, exc):

@@ -23,6 +23,7 @@ build athenaeum
 build quacktuaries
 build bernoulli
 build srs
+build statistically-speaking
 ```
 
 Each project has its own version; the apps publish both standalone and hosted variants. See [image builds](../development/image-builds.md) for first versions and build checks.

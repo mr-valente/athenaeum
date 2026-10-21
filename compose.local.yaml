@@ -31,3 +31,6 @@ services:
   srs:
     build: ../srs
     pull_policy: never
+  statistically-speaking:
+    build: ../statistically-speaking
+    pull_policy: never

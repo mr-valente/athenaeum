@@ -2,7 +2,7 @@
 
 This stack includes Sablier and uses the same separate app groups and session tiers as production. Use a Docker daemon that is not already managed by another Sablier instance: lifecycle discovery is daemon-wide even though groups are project-qualified. See [on-demand applications](../reference/sablier.md) for cold-start checks and the disposable smoke test.
 
-Run from the Athenaeum checkout, with the Quacktuaries, Bernoulli and SRS checkouts beside it. Requires Docker Engine, Compose 2.24.4+ (for the local port override), and Python 3.
+Run from the Athenaeum checkout, with the Quacktuaries, Bernoulli, SRS and Statistically Speaking checkouts beside it. Requires Docker Engine, Compose 2.24.4+ (for the local port override), and Python 3.
 
 ```bash
 ops/local-stack init
@@ -44,10 +44,11 @@ The local wrapper uses a separate Compose project, loopback ports, your UID/GID,
 | `quacktuaries` | 8000 | Database at `/data`; temporary scratch | 1 GiB |
 | `bernoulli` | 8000 | Database at `/data`; temporary scratch | 1 GiB |
 | `srs` | 8000 | Database at `/data`; temporary scratch | 1 GiB |
+| `statistically-speaking` | 8000 | Database at `/data`; temporary scratch | 1 GiB |
 
 All services use non-root processes, read-only root filesystems, restricted capabilities, bounded logs, and health checks. Only Caddy publishes host ports. Apps share one private `apps` network; only Caddy also joins the outbound `default` network. Docker supplies service names and addresses. This intentionally treats our apps as trusted peers. Both apps trust proxy headers on their unpublished internal ports; Caddy sets them from the public request. A new untrusted app would need a separate boundary.
 
-Caddy redirects `/quacktuaries` to `/quacktuaries/`, `/bernoulli` to `/bernoulli/` and `/srs` to `/srs/`, preserves queries, and strips the prefix upstream. App links, forms, assets, and redirects include the public prefix. Cookies have a unique name, app path, and production security flags. All apps on the domain still share one browser origin.
+Caddy redirects `/quacktuaries` to `/quacktuaries/`, `/bernoulli` to `/bernoulli/`, `/srs` to `/srs/` and `/statistically-speaking` to `/statistically-speaking/`, preserves queries, and strips the prefix upstream. App links, forms, assets, and redirects include the public prefix. Cookies have a unique name, app path, and production security flags. All apps on the domain still share one browser origin.
 
 Bind mounts require existing directories. Production also uses the filesystem UUID guard; a directory's existence alone does not prove that the block disk mounted. See [recovery](../guides/5-backup-and-recovery.md).
 

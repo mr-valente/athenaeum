@@ -35,6 +35,7 @@ class HostSetupTests(unittest.TestCase):
                'age_binary': '/opt/athenaeum/tools/age', 'filesystem_uuid': '1234-abcd',
                'accounts_session_secret': '/etc/athenaeum/accounts-key', 'session_secret': '/etc/athenaeum/key', 'bernoulli_session_secret': '/etc/athenaeum/bernoulli-key',
                'srs_session_secret': '/etc/athenaeum/srs-key',
+               'statistically_speaking_session_secret': '/etc/athenaeum/statistically-speaking-key',
                'compose_env': '/etc/athenaeum/compose.env',
                'compose_files': ['/opt/athenaeum/stack/compose.yaml'], 'monitor_object': 'monitor-host.json'}
         with patch.dict(globals_, {'load_config': lambda p: cfg, 'guard_mount': lambda c: None,
@@ -52,7 +53,7 @@ class HostSetupTests(unittest.TestCase):
         ns = runpy.run_path(str(OPS / 'install-host'))
         prepare = ns['prepare_session_key']
         for app, key in (('quacktuaries', 'session_secret'), ('bernoulli', 'bernoulli_session_secret'), ('srs', 'srs_session_secret'),
-                         ('accounts', 'accounts_session_secret')):
+                         ('statistically-speaking', 'statistically_speaking_session_secret'), ('accounts', 'accounts_session_secret')):
             with self.subTest(app=app), tempfile.TemporaryDirectory() as temp:
                 root = Path(temp)
                 data = root / 'apps' / app / 'data'

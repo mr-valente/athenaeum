@@ -66,7 +66,7 @@ def atomic_json(path, data):
 # Registered stateful applications. Each owns one SQLite database at
 # apps/<name>/data/app.db and one persistent signing key named by the config
 # key below. Its Compose service, secret (<name>_session), image override
-# (<NAME>_IMAGE) and public prefix all derive from the name.
+# (<NAME>_IMAGE, hyphens as underscores) and public prefix all derive from the name.
 APPS = {
     'accounts': {'secret': 'accounts_session_secret', 'root_path': '/account', 'always_awake': True,
                  'tables': {'users', 'identities', 'account_sessions', 'performance', 'account_audit'}},
@@ -76,8 +76,16 @@ APPS = {
                   'tables': {'teachers', 'sessions', 'players', 'flip_flop_rounds', 'flip_flop_votes'}},
     'srs': {'secret': 'srs_session_secret', 'root_path': '/srs',
             'tables': {'learners', 'card_states', 'reviews', 'card_notes', 'decks'}},
+    'statistically-speaking': {'secret': 'statistically_speaking_session_secret', 'root_path': '/statistically-speaking',
+                               'tables': {'teachers', 'sessions', 'players', 'full_monty_pairs', 'full_monty_games',
+                                          'full_monty_votes'}},
 }
 SERVICES = ('edge', 'athenaeum', 'socket-proxy', 'sablier', *APPS)
+
+
+def variable(app):
+    """The environment-variable stem for an app: its name upper-cased, hyphens as underscores."""
+    return app.upper().replace('-', '_')
 
 
 def container_ok(item, allow_sleeping=True):
@@ -127,6 +135,7 @@ DEFAULTS = {
     'session_secret': '/etc/athenaeum/quacktuaries-session-secret',
     'bernoulli_session_secret': '/etc/athenaeum/bernoulli-session-secret',
     'srs_session_secret': '/etc/athenaeum/srs-session-secret',
+    'statistically_speaking_session_secret': '/etc/athenaeum/statistically-speaking-session-secret',
     'accounts_session_secret': '/etc/athenaeum/accounts-session-secret',
     'age_binary': '/opt/athenaeum/tools/age', 'bucket_cap_bytes': 8_000_000_000,
     'max_snapshot_bytes': 1_000_000_000, 'max_restore_bytes': 4_000_000_000,
@@ -258,7 +267,7 @@ def compose_invocation(cfg, *args):
     for file in compose_files(cfg):
         command += ['-f', file]
     # Explicit config is authoritative, not inherited interactive shell variables.
-    private = {f'{app.upper()}_{suffix}' for app in APPS for suffix in ('SECRET_FILE', 'IMAGE')}
+    private = {f'{variable(app)}_{suffix}' for app in APPS for suffix in ('SECRET_FILE', 'IMAGE')}
     env = {k: v for k, v in os.environ.items() if k not in private | {
         'DATA_ROOT', 'EDGE_IMAGE', 'ATHENAEUM_IMAGE', 'ACCOUNT_ORIGIN',
         'RUNTIME_UID', 'RUNTIME_GID', 'SITE_DOMAIN', 'ACME_EMAIL',
