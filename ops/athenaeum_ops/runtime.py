@@ -62,7 +62,7 @@ with urllib.request.urlopen('http://127.0.0.1:8000/',timeout=3) as r:
  assert b'Statistically Speaking' in r.read()
 with sqlite3.connect('file:/data/app.db?mode=ro',uri=True) as db:
  assert db.execute('PRAGMA integrity_check').fetchone()[0]=='ok'
- for table in ('teachers','sessions','players','full_monty_pairs','full_monty_games','full_monty_votes'):
+ for table in ('teachers','sessions','players','full_monty_tables','full_monty_seats','full_monty_requests','full_monty_games','full_monty_votes'):
   db.execute('SELECT count(*) FROM '+table).fetchone()
  orphans=db.execute('SELECT count(*) FROM full_monty_games WHERE session_id NOT IN (SELECT id FROM sessions)').fetchone()[0]
  assert orphans==0

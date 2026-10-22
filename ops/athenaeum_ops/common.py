@@ -77,8 +77,8 @@ APPS = {
     'srs': {'secret': 'srs_session_secret', 'root_path': '/srs',
             'tables': {'learners', 'card_states', 'reviews', 'card_notes', 'decks'}},
     'statistically-speaking': {'secret': 'statistically_speaking_session_secret', 'root_path': '/statistically-speaking',
-                               'tables': {'teachers', 'sessions', 'players', 'full_monty_pairs', 'full_monty_games',
-                                          'full_monty_votes'}},
+                               'tables': {'teachers', 'sessions', 'players', 'full_monty_tables', 'full_monty_seats',
+                                          'full_monty_requests', 'full_monty_games', 'full_monty_votes'}},
 }
 SERVICES = ('edge', 'athenaeum', 'socket-proxy', 'sablier', *APPS)
 
